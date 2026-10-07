@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Testing & Coverage
+coverage/
+*.lcov
+.nyc_output
+
+# Next.js / React Build Outputs
+.next/
+out/
+build/
+dist/
+
+# Environment Variables & Firebase Client Keys
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+firebase-config.json
+service-account*.json
+
+# Debug Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor & System Files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# TypeScript Cache
+*.tsbuildinfo
+next-env.d.ts
+
+# AI Agent Context
+AGENT.md
+AGENTS.md
+
