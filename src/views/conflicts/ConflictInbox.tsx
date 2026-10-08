@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Shield,
   LayoutDashboard,
@@ -12,19 +12,88 @@ import {
   Clock,
   AlertCircle,
   Map,
-  MapPin,
-  Send,
-  UserPlus,
-  Eye,
-  FileText,
   PhoneCall,
   Smartphone,
-  Zap,
   CheckCircle2,
-  AlertTriangle
+  Send,
+  UserPlus,
+  Terminal
 } from 'lucide-react';
+import { auth } from '../../firebase';
+import { getSocket } from '../../services/socket';
 
 export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'dashboard' | 'inbox' | 'resolution') => void }) {
+  const [conflicts, setConflicts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [customSms, setCustomSms] = useState('');
+  const [isAutoSimulating, setIsAutoSimulating] = useState(false);
+
+  useEffect(() => {
+    // 1. Fetch initial data from Backend
+    const fetchConflicts = async () => {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        const response = await fetch('http://localhost:5000/api/conflicts', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch from protected route');
+        
+        const data = await response.json();
+        setConflicts(data);
+      } catch (error) {
+        console.error("Failed to fetch conflicts:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchConflicts();
+
+    // 2. Listen for Real-Time Socket Events
+    const socket = getSocket();
+    
+    // When a new SMS or App report comes in, add it to the top of the list
+    socket.on('conflict:new', (newConflict: any) => {
+      setConflicts((prev) => [newConflict, ...prev]);
+    });
+
+    return () => {
+      socket.off('conflict:new');
+    };
+  }, []);
+
+  // Auto-Simulation Effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isAutoSimulating) {
+      interval = setInterval(() => {
+        const msgs = [
+          "Leopard sighted near the northern water pump.",
+          "Elephants breaking fences at Sector 2.",
+          "Wild boar destroyed crops last night.",
+          "Herd of elephants blocking the main road.",
+          "SOS: Elephant charging near the village school!",
+          "Large snake found near the community well.",
+          "Crocodile spotted dangerously close to fishing boats.",
+          "Monkey troop stealing food from houses in Sector 7.",
+          "Leopard tracks found near the livestock pens this morning."
+        ];
+        const randomMsg = msgs[Math.floor(Math.random() * msgs.length)];
+        fetch('http://localhost:5000/api/conflicts/mock-sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body: randomMsg, from: "+9477000" + Math.floor(1000 + Math.random() * 9000) })
+        }).catch(console.error);
+      }, 10000); // Fire every 10 seconds for the demo
+    }
+    return () => clearInterval(interval);
+  }, [isAutoSimulating]);
+
+  const unreadCount = conflicts.filter(c => c.status === 'UNREAD').length;
+
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-800">
       {/* Sidebar */}
@@ -34,7 +103,7 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
           <span className="text-lg font-semibold tracking-normal">WildGuard Command</span>
         </div>
 
-            <nav className="flex-1 px-4 space-y-1 mt-2">
+        <nav className="flex-1 px-4 space-y-1 mt-2">
           <button onClick={() => onNavigate?.('dashboard')} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-800/60 hover:text-white rounded-md transition-colors text-sm">
             <LayoutDashboard className="w-4 h-4 text-slate-300" />
             <span>Dashboard</span>
@@ -44,7 +113,9 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
               <Inbox className="w-4 h-4" />
               <span>Conflict Inbox</span>
             </div>
-            <span className="bg-slate-700 text-slate-200 text-xs font-medium px-2 py-0.5 rounded">3</span>
+            {unreadCount > 0 && (
+              <span className="bg-slate-700 text-slate-200 text-xs font-medium px-2 py-0.5 rounded">{unreadCount}</span>
+            )}
           </button>
           <a href="#" className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-800/60 hover:text-white rounded-md transition-colors text-sm">
             <Truck className="w-4 h-4" />
@@ -54,7 +125,55 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
             <Users className="w-4 h-4" />
             <span>Community Contacts</span>
           </a>
-            </nav>
+        </nav>
+
+        {/* Dev Tools Simulator Panel */}
+        <div className="mx-4 mb-4 p-4 bg-slate-800/50 border border-slate-700/50 rounded-xl flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Simulation Tools</span>
+            </div>
+            
+            {/* Auto-Toggle */}
+            <button 
+              onClick={() => setIsAutoSimulating(!isAutoSimulating)}
+              className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide border ${isAutoSimulating ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' : 'bg-slate-700 text-slate-400 border-slate-600'}`}
+            >
+              {isAutoSimulating ? 'Auto: ON' : 'Auto: OFF'}
+            </button>
+          </div>
+          
+          <input 
+            type="text" 
+            placeholder="Type custom SMS..." 
+            value={customSms}
+            onChange={(e) => setCustomSms(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+          />
+
+          <button 
+            onClick={async () => {
+              try {
+                await fetch('http://localhost:5000/api/conflicts/mock-sms', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    body: customSms.trim() || "URGENT: Elephant destroying crops in Sector 4!",
+                    from: "+94770001111"
+                  })
+                });
+                setCustomSms(''); // Clear input after sending
+              } catch (err) {
+                console.error("Failed to mock SMS", err);
+              }
+            }}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600/10 hover:bg-emerald-600 border border-emerald-500/30 text-emerald-400 hover:text-white rounded-lg text-xs font-medium transition-colors"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            Send Mock SMS
+          </button>
+        </div>
 
         <div className="flex items-center gap-3 p-4 border-t border-slate-800">
           <div className="w-9 h-9 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-medium text-sm">
@@ -62,9 +181,13 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-slate-200 truncate">R. Jayawardena</p>
-            <p className="text-xs text-slate-400 truncate">Community Liaison Officer</p>
+            <p className="text-xs text-slate-400 truncate">Liaison Officer</p>
           </div>
-          <button className="p-1.5 hover:bg-slate-800 rounded-md transition-colors text-slate-400 hover:text-white" title="Sign Out">
+          <button 
+            onClick={() => auth.signOut()}
+            className="p-1.5 hover:bg-slate-800 rounded-md transition-colors text-slate-400 hover:text-white" 
+            title="Sign Out"
+          >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
@@ -77,9 +200,11 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-bold text-slate-900">Notifications & Conflict Alerts</h1>
-              <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded text-xs font-semibold border border-red-100">
-                3 Action Required
-              </span>
+              {unreadCount > 0 && (
+                <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded text-xs font-semibold border border-red-100">
+                  {unreadCount} Action Required
+                </span>
+              )}
             </div>
             <p className="text-sm text-slate-500 mt-0.5">Real-time community dispatches, SMS alerts, and verified field conflicts awaiting review.</p>
           </div>
@@ -98,7 +223,9 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
             </button>
             <button className="p-2 rounded-md hover:bg-slate-100 transition-colors relative border border-slate-200 text-slate-700 bg-white">
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-600 rounded-full"></span>
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
+              )}
             </button>
           </div>
         </header>
@@ -107,213 +234,146 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
         <div className="flex-1 overflow-auto p-8">
           <div className="max-w-7xl mx-auto w-full">
 
-              {/* Top KPI Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                {/* Card 1 */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-start gap-3">
-                  <div className="mt-0.5 text-red-500">
-                    <AlertCircle className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Unresolved Alerts</h3>
+            {/* Top KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-start gap-3">
+                <div className="mt-0.5 text-red-500">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex justify-between items-start">
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Unresolved Alerts</h3>
+                    {unreadCount > 0 && (
                       <span className="bg-red-50 text-red-700 border border-red-100 text-[10px] font-semibold px-2 py-0.5 rounded-full">Immediate Action</span>
-                    </div>
-                    <p className="text-2xl font-bold text-slate-900">3 <span className="text-sm font-normal text-slate-500">Conflicts</span></p>
+                    )}
                   </div>
-                </div>
-
-                {/* Card 2 */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-start gap-3">
-                  <div className="mt-0.5 text-slate-400">
-                    <Clock className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Avg Response Time</h3>
-                    <p className="text-2xl font-bold text-slate-900">14 <span className="text-sm font-normal text-slate-500">mins</span></p>
-                  </div>
-                </div>
-
-                {/* Card 3 */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-start gap-3">
-                  <div className="mt-0.5 text-slate-400">
-                    <Map className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Hotspot Sector</h3>
-                      <span className="bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-semibold px-2 py-0.5 rounded-full">Active Zone</span>
-                    </div>
-                    <p className="text-xl font-bold text-slate-900 truncate">Galwala Sector</p>
-                  </div>
+                  <p className="text-2xl font-bold text-slate-900">{unreadCount} <span className="text-sm font-normal text-slate-500">Conflicts</span></p>
                 </div>
               </div>
-
-              {/* Filter Tabs */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex gap-2">
-                  <button className="bg-emerald-700 text-white px-3 py-1.5 rounded-md text-sm font-medium shadow-sm">
-                    All Conflicts (9)
-                  </button>
-                  <button className="bg-white text-slate-600 border border-slate-200 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-1.5">
-                    Unread <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded text-xs">3</span>
-                  </button>
-                  <button className="bg-white text-slate-600 border border-slate-200 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors">
-                    SMS Hotline (4)
-                  </button>
-                  <button className="bg-white text-slate-600 border border-slate-200 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors">
-                    Mobile App (5)
-                  </button>
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-start gap-3">
+                <div className="mt-0.5 text-slate-400">
+                  <Clock className="w-5 h-5" />
                 </div>
-                <div className="text-sm text-slate-500">
-                  Showing <span className="font-semibold text-slate-700">4</span> of 9 conflicts
+                <div className="flex-1">
+                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Avg Response Time</h3>
+                  <p className="text-2xl font-bold text-slate-900">14 <span className="text-sm font-normal text-slate-500">mins</span></p>
                 </div>
               </div>
-
-              {/* Conflict Alert Cards (The Feed) */}
-              <div className="space-y-4">
-                
-                {/* Card 1: High Priority */}
-                <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 flex flex-col gap-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="font-semibold text-red-600 uppercase tracking-wide">High Priority</span>
-                      <span className="text-slate-300">&bull;</span>
-                      <span className="flex items-center gap-1.5 text-slate-500 font-medium">
-                        <PhoneCall className="w-3 h-3" />
-                        SMS Hotline
-                      </span>
-                      <span className="text-slate-300">&bull;</span>
-                      <span className="flex items-center gap-1.5 font-medium text-red-600">
-                        <div className="w-1.5 h-1.5 bg-red-600 rounded-full"></div>
-                        Unread Alert
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h2 className="text-lg font-bold text-slate-900 mb-2">SMS: Elephant herd spotted near Galwala settlement</h2>
-                    <p className="text-sm text-slate-600 leading-relaxed max-w-4xl">
-                      Herd of approximately 4-6 individuals reported moving toward the eastern perimeter fence near farmer households. Community elders requesting immediate field presence.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-4 mt-2">
-                    <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
-                      <span className="flex items-center gap-1.5">
-                        <span className="font-medium text-slate-700">Reported by:</span> W. Fernando
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="font-medium text-slate-700">Location:</span> Galwala Boundary (Sector 4)
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="font-medium text-slate-700">Time:</span> 2 mins ago
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-md text-sm font-medium transition-colors">
-                        Acknowledge
-                      </button>
-                      <button 
-                        onClick={() => onNavigate?.('resolution')}
-                        className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-md text-sm font-medium transition-colors"
-                      >
-                        View Details
-                      </button>
-                      <button className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-sm font-medium transition-colors flex items-center gap-2 shadow-sm">
-                        <Send className="w-4 h-4" />
-                        Dispatch Patrol
-                      </button>
-                    </div>
-                  </div>
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-start gap-3">
+                <div className="mt-0.5 text-slate-400">
+                  <Map className="w-5 h-5" />
                 </div>
-
-                {/* Card 2: Medium Priority */}
-                <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 flex flex-col gap-4">
+                <div className="flex-1">
                   <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="font-semibold text-amber-600 uppercase tracking-wide">Medium Priority</span>
-                      <span className="text-slate-300">&bull;</span>
-                      <span className="flex items-center gap-1.5 text-slate-500 font-medium">
-                        <Smartphone className="w-3 h-3" />
-                        Mobile App Report
-                      </span>
-                    </div>
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Hotspot Sector</h3>
                   </div>
-                  
-                  <div>
-                    <h2 className="text-lg font-bold text-slate-900 mb-2">App: Crop damage reported in paddy field sector B</h2>
-                    <p className="text-sm text-slate-600 leading-relaxed max-w-4xl">
-                      Single bull broke secondary wooden barrier at roughly 05:30. Farmers drove elephant back into buffer zone; assessment needed for compensation claim verification.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-4 mt-2">
-                    <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
-                      <span className="flex items-center gap-1.5">
-                        <span className="font-medium text-slate-700">Reported by:</span> K. Somapala
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="font-medium text-slate-700">Time:</span> 15 mins ago
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-md text-sm font-medium transition-colors">
-                        Dismiss
-                      </button>
-                      <button 
-                        onClick={() => onNavigate?.('resolution')}
-                        className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-md text-sm font-medium transition-colors"
-                      >
-                        View Details
-                      </button>
-                      <button className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-md text-sm font-medium transition-colors flex items-center gap-2 shadow-sm">
-                        <UserPlus className="w-4 h-4" />
-                        Assign Officer
-                      </button>
-                    </div>
-                  </div>
+                  <p className="text-xl font-bold text-slate-900 truncate">Sector 4</p>
                 </div>
-
-
-                {/* Card 4: Resolved */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 opacity-80 flex flex-col gap-3">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-base font-semibold text-slate-700">SMS: Elephant attempting to cross main road</h3>
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-slate-200 px-2 py-0.5 rounded">
-                      <CheckCircle2 className="w-3 h-3" />
-                      Resolved by Team B
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-slate-500">
-                    <span>Reported: 1h 45m ago</span>
-                    <span>Resolver: Officer S. Perera</span>
-                  </div>
-                </div>
-
-                {/* Card 5: Resolved */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 opacity-80 flex flex-col gap-3">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-base font-semibold text-slate-700">App: Lone bull elephant grazing near highway road A4</h3>
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-slate-200 px-2 py-0.5 rounded">
-                      <CheckCircle2 className="w-3 h-3" />
-                      Monitored & Escorted
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-slate-500">
-                    <span>Reported: 3h ago</span>
-                    <span>Status: Closed with no conflicts</span>
-                  </div>
-                </div>
-
               </div>
-              
-              {/* Bottom padding for scroll */}
-              <div className="h-12"></div>
             </div>
+
+            {/* Filter Tabs */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex gap-2">
+                <button className="bg-emerald-700 text-white px-3 py-1.5 rounded-md text-sm font-medium shadow-sm">
+                  All Conflicts ({conflicts.length})
+                </button>
+                <button className="bg-white text-slate-600 border border-slate-200 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-1.5">
+                  Unread <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded text-xs">{unreadCount}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Conflict Alert Cards (The Feed) */}
+            <div className="space-y-4">
+              {loading ? (
+                <div className="text-center py-10 text-slate-500">Loading live conflicts...</div>
+              ) : conflicts.length === 0 ? (
+                <div className="text-center py-10 text-slate-500 flex flex-col items-center">
+                  <CheckCircle2 className="w-12 h-12 text-emerald-400 mb-3" />
+                  <p className="font-semibold">All Clear</p>
+                  <p className="text-sm">No conflicts reported yet.</p>
+                </div>
+              ) : (
+                conflicts.map((conflict, idx) => (
+                  <div key={conflict._id || idx} className={`border rounded-xl p-5 flex flex-col gap-4 ${conflict.status === 'UNREAD' ? 'bg-white border-red-200 shadow-sm' : 'bg-slate-50 border-slate-200 opacity-80'}`}>
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className={`font-semibold uppercase tracking-wide ${conflict.priority === 'HIGH' ? 'text-red-600' : 'text-amber-600'}`}>
+                          {conflict.priority} Priority
+                        </span>
+                        <span className="text-slate-300">&bull;</span>
+                        <span className="flex items-center gap-1.5 text-slate-500 font-medium">
+                          {conflict.source === 'SMS' ? <PhoneCall className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
+                          {conflict.source === 'SMS' ? 'SMS Hotline' : 'Mobile App Report'}
+                        </span>
+                        {conflict.status === 'UNREAD' && (
+                          <>
+                            <span className="text-slate-300">&bull;</span>
+                            <span className="flex items-center gap-1.5 font-medium text-red-600">
+                              <div className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse"></div>
+                              Unread Alert
+                            </span>
+                          </>
+                        )}
+                        {conflict.status === 'RESOLVED' && (
+                          <>
+                            <span className="text-slate-300">&bull;</span>
+                            <span className="flex items-center gap-1.5 font-medium text-emerald-600">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Resolved
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900 mb-2">{conflict.source}: {conflict.description.substring(0, 50)}...</h2>
+                      <p className="text-sm text-slate-600 leading-relaxed max-w-4xl">
+                        {conflict.description}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-4 mt-2">
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                        <span className="flex items-center gap-1.5">
+                          <span className="font-medium text-slate-700">Reported by:</span> {conflict.reporter}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="font-medium text-slate-700">Location:</span> {conflict.location}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="font-medium text-slate-700">Time:</span> {new Date(conflict.reportedAt).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      
+                      {conflict.status !== 'RESOLVED' && (
+                        <div className="flex items-center gap-2">
+                          <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-md text-sm font-medium transition-colors">
+                            Acknowledge
+                          </button>
+                          <button 
+                            onClick={() => onNavigate?.('resolution')}
+                            className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-md text-sm font-medium transition-colors"
+                          >
+                            View Details
+                          </button>
+                          <button className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-sm font-medium transition-colors flex items-center gap-2 shadow-sm">
+                            <Send className="w-4 h-4" />
+                            Dispatch Patrol
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            <div className="h-12"></div>
           </div>
+        </div>
       </main>
     </div>
   );

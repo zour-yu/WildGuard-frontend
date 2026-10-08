@@ -19,12 +19,27 @@ import { AlertDispatchData } from './types/telemetry';
 import ConflictDashboard from './views/conflicts/ConflictDashboard';
 import ConflictInbox from './views/conflicts/ConflictInbox';
 import ConflictResolutionDetail from './views/conflicts/ConflictResolutionDetail';
+import LoginScreen from './views/auth/LoginScreen';
+import { auth } from './firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 export default function App() {
   const [activeNav, setActiveNav] = useState<'dashboard' | 'inbox' | 'dispatch' | 'contacts' | 'terminal' | 'resolution' | 'telemetry'>('inbox');
   const [activeAlertCount, setActiveAlertCount] = useState<number>(3);
   const [latestBreachAlert, setLatestBreachAlert] = useState<AlertDispatchData | null>(null);
   const [isTerminalModalOpen, setIsTerminalModalOpen] = useState<boolean>(false);
+
+  // Auth State
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     // Initial fetch of active alerts
@@ -59,6 +74,19 @@ export default function App() {
       socket.off('dispatch:updated');
     };
   }, []);
+
+  // Global Auth Guard
+  if (authLoading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f8fafc]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen />;
+  }
 
   // Conditionally render the standalone Conflict views (they have their own full-screen layouts and sidebars)
   if (activeNav === 'inbox') {
@@ -244,6 +272,7 @@ export default function App() {
           </div>
           <button
             title="Sign Out"
+            onClick={() => auth.signOut()}
             className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800/60 transition-colors"
           >
             <LogOut className="w-4 h-4" />
