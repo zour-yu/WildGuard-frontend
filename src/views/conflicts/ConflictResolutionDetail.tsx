@@ -8,54 +8,22 @@ import {
   LogOut, 
   ArrowLeft,
   Circle,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Radio,
+  Layers,
 } from 'lucide-react';
+import { AppSidebar } from '../../components/common/AppSidebar';
+import { auth } from '../../firebase';
 
-export default function ConflictResolutionDetail({ onNavigate }: { onNavigate?: (view: 'dashboard' | 'inbox' | 'resolution') => void }) {
+export default function ConflictResolutionDetail({ onNavigate }: { onNavigate?: (view: any) => void }) {
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
-        {/* Sidebar */}
-        <aside className="w-64 bg-slate-900 text-slate-400 flex flex-col flex-shrink-0">
-          <div className="p-6 flex items-center gap-3 text-white">
-            <Shield className="w-7 h-7 text-slate-200" />
-            <span className="text-lg font-semibold tracking-normal">WildGuard Command</span>
-          </div>
-
-          <nav className="flex-1 px-4 space-y-1 mt-2">
-            <button onClick={() => onNavigate?.('dashboard')} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-800/60 hover:text-white rounded-md transition-colors text-sm">
-              <LayoutDashboard className="w-4 h-4 text-slate-300" />
-              <span>Dashboard</span>
-            </button>
-            <button onClick={() => onNavigate?.('inbox')} className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-800 text-white rounded-md font-medium text-sm">
-              <div className="flex items-center gap-3">
-                <Inbox className="w-4 h-4" />
-                <span>Conflict Inbox</span>
-              </div>
-              <span className="bg-slate-700 text-slate-200 text-xs font-medium px-2 py-0.5 rounded">3</span>
-            </button>
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-800/60 hover:text-white rounded-md transition-colors text-sm">
-              <Truck className="w-4 h-4" />
-              <span>Dispatch Log</span>
-            </button>
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-800/60 hover:text-white rounded-md transition-colors text-sm">
-              <Users className="w-4 h-4" />
-              <span>Community Contacts</span>
-            </button>
-          </nav>
-
-          <div className="flex items-center gap-3 p-4 border-t border-slate-800">
-            <div className="w-9 h-9 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-medium text-sm">
-              RJ
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-200 truncate">R. Jayawardena</p>
-              <p className="text-xs text-slate-400 truncate">Park Manager</p>
-            </div>
-            <button className="p-1.5 hover:bg-slate-800 rounded-md transition-colors text-slate-400 hover:text-white" title="Sign Out">
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        </aside>
+        {/* UNIFIED SIDEBAR (Matching Telemetry & Breaches) */}
+        <AppSidebar
+          activeNav="resolution"
+          onNavigate={onNavigate as any}
+          onSignOut={() => auth.signOut()}
+        />
 
         {/* Main Content Area */}
         <main className="flex-1 flex flex-col overflow-auto p-8 relative">

@@ -17,10 +17,13 @@ import {
   CheckCircle2,
   Send,
   UserPlus,
-  Terminal
+  Terminal,
+  Radio,
+  Layers,
 } from 'lucide-react';
 import { auth } from '../../firebase';
 import { getSocket } from '../../services/socket';
+import { AppSidebar } from '../../components/common/AppSidebar';
 
 export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'dashboard' | 'inbox' | 'resolution') => void }) {
   const [conflicts, setConflicts] = useState<any[]>([]);
@@ -96,102 +99,13 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-800">
-      {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 text-slate-400 flex flex-col flex-shrink-0">
-        <div className="p-6 flex items-center gap-3 text-white">
-          <Shield className="w-7 h-7 text-slate-200" />
-          <span className="text-lg font-semibold tracking-normal">WildGuard Command</span>
-        </div>
-
-        <nav className="flex-1 px-4 space-y-1 mt-2">
-          <button onClick={() => onNavigate?.('dashboard')} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-800/60 hover:text-white rounded-md transition-colors text-sm">
-            <LayoutDashboard className="w-4 h-4 text-slate-300" />
-            <span>Dashboard</span>
-          </button>
-          <button onClick={() => onNavigate?.('inbox')} className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-800 text-white rounded-md font-medium text-sm">
-            <div className="flex items-center gap-3">
-              <Inbox className="w-4 h-4" />
-              <span>Conflict Inbox</span>
-            </div>
-            {unreadCount > 0 && (
-              <span className="bg-slate-700 text-slate-200 text-xs font-medium px-2 py-0.5 rounded">{unreadCount}</span>
-            )}
-          </button>
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-800/60 hover:text-white rounded-md transition-colors text-sm">
-            <Truck className="w-4 h-4" />
-            <span>Dispatch Log</span>
-          </a>
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-800/60 hover:text-white rounded-md transition-colors text-sm">
-            <Users className="w-4 h-4" />
-            <span>Community Contacts</span>
-          </a>
-        </nav>
-
-        {/* Dev Tools Simulator Panel */}
-        <div className="mx-4 mb-4 p-4 bg-slate-800/50 border border-slate-700/50 rounded-xl flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Terminal className="w-4 h-4 text-emerald-400" />
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Simulation Tools</span>
-            </div>
-            
-            {/* Auto-Toggle */}
-            <button 
-              onClick={() => setIsAutoSimulating(!isAutoSimulating)}
-              className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide border ${isAutoSimulating ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' : 'bg-slate-700 text-slate-400 border-slate-600'}`}
-            >
-              {isAutoSimulating ? 'Auto: ON' : 'Auto: OFF'}
-            </button>
-          </div>
-          
-          <input 
-            type="text" 
-            placeholder="Type custom SMS..." 
-            value={customSms}
-            onChange={(e) => setCustomSms(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-          />
-
-          <button 
-            onClick={async () => {
-              try {
-                await fetch('http://localhost:5000/api/conflicts/mock-sms', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    body: customSms.trim() || "URGENT: Elephant destroying crops in Sector 4!",
-                    from: "+94770001111"
-                  })
-                });
-                setCustomSms(''); // Clear input after sending
-              } catch (err) {
-                console.error("Failed to mock SMS", err);
-              }
-            }}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600/10 hover:bg-emerald-600 border border-emerald-500/30 text-emerald-400 hover:text-white rounded-lg text-xs font-medium transition-colors"
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            Send Mock SMS
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 p-4 border-t border-slate-800">
-          <div className="w-9 h-9 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-medium text-sm">
-            RJ
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-200 truncate">R. Jayawardena</p>
-            <p className="text-xs text-slate-400 truncate">Park Manager</p>
-          </div>
-          <button 
-            onClick={() => auth.signOut()}
-            className="p-1.5 hover:bg-slate-800 rounded-md transition-colors text-slate-400 hover:text-white" 
-            title="Sign Out"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
-      </aside>
+      {/* UNIFIED SIDEBAR (Matching Telemetry & Breaches) */}
+      <AppSidebar
+        activeNav="inbox"
+        onNavigate={onNavigate as any}
+        unreadConflictCount={unreadCount}
+        onSignOut={() => auth.signOut()}
+      />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -233,6 +147,51 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
         {/* Scrollable Main Layout */}
         <div className="flex-1 overflow-auto p-8">
           <div className="max-w-7xl mx-auto w-full">
+
+            {/* Community SMS Testing Console */}
+            <div className="mb-6 p-4 bg-slate-900 text-white rounded-2xl flex flex-wrap items-center justify-between gap-4 border border-slate-800 shadow-md">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-200">Community SMS Dispatch Console</span>
+                <button 
+                  onClick={() => setIsAutoSimulating(!isAutoSimulating)}
+                  className={`ml-2 text-[10px] px-2.5 py-1 rounded font-bold uppercase tracking-wide border transition ${isAutoSimulating ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' : 'bg-slate-800 text-slate-400 border-slate-700'}`}
+                >
+                  {isAutoSimulating ? 'Auto Sim: ON' : 'Auto Sim: OFF'}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 flex-1 max-w-md">
+                <input 
+                  type="text" 
+                  placeholder="Type mock emergency SMS..." 
+                  value={customSms}
+                  onChange={(e) => setCustomSms(e.target.value)}
+                  className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500"
+                />
+                <button 
+                  onClick={async () => {
+                    try {
+                      await fetch('http://localhost:5000/api/conflicts/mock-sms', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          body: customSms.trim() || "URGENT: Elephant herd spotted near Galwala village border!",
+                          from: "+94770001111"
+                        })
+                      });
+                      setCustomSms('');
+                    } catch (err) {
+                      console.error("Failed to mock SMS", err);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium transition shadow"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Send Mock SMS</span>
+                </button>
+              </div>
+            </div>
 
             {/* Top KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">

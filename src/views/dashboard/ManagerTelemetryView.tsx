@@ -17,6 +17,13 @@ import {
   ChevronRight,
   Activity,
   Compass,
+  Inbox,
+  PhoneCall,
+  Smartphone,
+  Search,
+  Filter,
+  RefreshCw,
+  Layers,
 } from 'lucide-react';
 import {
   CollarTelemetryData,
@@ -25,8 +32,10 @@ import {
   RangerData,
 } from '../../types/telemetry';
 import { Incident } from '../../types/incident';
+import { ConflictReport } from '../../types/conflict';
 import { telemetryService } from '../../services/telemetryService';
 import { incidentApiClient } from '../../services/api.client';
+import { conflictService } from '../../services/conflictService';
 import { getSocket } from '../../services/socket';
 import { WildlifeReserveMap } from '../../components/map/WildlifeReserveMap';
 import { rankRangersByProximity } from '../../utils/geoUtils';
@@ -46,6 +55,15 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
   const [geofenceZones, setGeofenceZones] = useState<GeofenceZoneData[]>([]);
   const [rangers, setRangers] = useState<RangerData[]>([]);
   const [recordedIncidents, setRecordedIncidents] = useState<Incident[]>([]);
+  const [conflicts, setConflicts] = useState<ConflictReport[]>([]);
+  const [selectedConflict, setSelectedConflict] = useState<ConflictReport | null>(null);
+  const [conflictFilter, setConflictFilter] = useState<'ALL' | 'UNREAD' | 'RESOLVED'>('ALL');
+  const [conflictSearch, setConflictSearch] = useState<string>('');
+  const [activeOperationsTab, setActiveOperationsTab] = useState<'CONFLICTS' | 'BREACHES' | 'UNIFIED'>('CONFLICTS');
+  const [isSimulatingSms, setIsSimulatingSms] = useState<boolean>(false);
+  const [isAutoSimulatingSms, setIsAutoSimulatingSms] = useState<boolean>(false);
+  const [showNotificationDropdown, setShowNotificationDropdown] = useState<boolean>(false);
+
   const [selectedAlertForDispatch, setSelectedAlertForDispatch] =
     useState<AlertDispatchData | null>(null);
   const [selectedIncidentForDispatch, setSelectedIncidentForDispatch] =
@@ -105,12 +123,13 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const [collars, alerts, zones, availableRangers, incidents] = await Promise.all([
+      const [collars, alerts, zones, availableRangers, incidents, conflictList] = await Promise.all([
         telemetryService.getLatestCollars().catch(() => []),
         telemetryService.getActiveAlerts().catch(() => []),
         telemetryService.getGeofenceZones().catch(() => []),
         telemetryService.getAvailableRangers().catch(() => []),
         incidentApiClient.fetchIncidents().catch(() => []),
+        conflictService.getConflicts().catch(() => []),
       ]);
 
       if (collars.length > 0) setTelemetryList(collars);
@@ -118,6 +137,7 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
       setGeofenceZones(zones);
       setRangers(availableRangers);
       setRecordedIncidents(incidents);
+      setConflicts(conflictList);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
     } finally {
@@ -154,6 +174,24 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
       setTimeout(() => setBannerToast(null), 8000);
     });
 
+    socket.on('conflict:new', (newConflict: ConflictReport) => {
+      setConflicts((prev) => {
+        const exists = prev.find((c) => c._id === newConflict._id);
+        if (exists) return prev;
+        return [newConflict, ...prev];
+      });
+      setBannerToast(
+        `📢 Live ${newConflict.source} Conflict: ${newConflict.description.substring(0, 45)}...`
+      );
+      setTimeout(() => setBannerToast(null), 8000);
+    });
+
+    socket.on('conflict:updated', (updated: ConflictReport) => {
+      setConflicts((prev) =>
+        prev.map((c) => (c._id === updated._id ? updated : c))
+      );
+    });
+
     socket.on('incident:updated', (updatedInc: Incident) => {
       setRecordedIncidents((prev) => {
         const index = prev.findIndex((i) => i.id === updatedInc.id);
@@ -186,10 +224,123 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
     return () => {
       socket.off('telemetry:ping');
       socket.off('animal:breach');
+      socket.off('conflict:new');
+      socket.off('conflict:updated');
       socket.off('incident:updated');
       socket.off('dispatch:updated');
     };
   }, []);
+
+  // Auto-simulation interval for incoming SMS
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isAutoSimulatingSms) {
+      interval = setInterval(() => {
+        handleSimulateSms();
+      }, 12000);
+    }
+    return () => clearInterval(interval);
+  }, [isAutoSimulatingSms]);
+
+  // Simulate an incoming SMS conflict report
+  const handleSimulateSms = async (customMsg?: string) => {
+    try {
+      setIsSimulatingSms(true);
+      const msgs = [
+        'Elephant herd spotted breaking perimeter fence near Sector 4 Farmland 8A.',
+        'Lone bull elephant foraging near Handapanagala reservoir irrigation canal.',
+        'SOS: Herd of 4 elephants approaching residential homes in Sector 5 buffer.',
+        'Crop damage logged: Elephants entered paddy field along Western boundary.',
+        'Elephant blocking rural transit road near Sector 2 Handapanagala basin.',
+      ];
+      const text = customMsg || msgs[Math.floor(Math.random() * msgs.length)];
+      const res = await conflictService.simulateMockSms(text);
+      if (res) {
+        setConflicts((prev) => [res, ...prev.filter((c) => c._id !== res._id)]);
+        setBannerToast(`📢 Simulated SMS Received: ${res.description.substring(0, 40)}...`);
+        setTimeout(() => setBannerToast(null), 5000);
+      }
+    } catch (err) {
+      console.error('Error simulating SMS:', err);
+    } finally {
+      setIsSimulatingSms(false);
+    }
+  };
+
+  // Dispatch Ranger to a community conflict report
+  const handleDispatchConflict = (conflict: ConflictReport) => {
+    const lat = conflict.latitude || 6.8224;
+    const lng = conflict.longitude || 80.9742;
+
+    const conflictAlert: AlertDispatchData = {
+      _id: conflict._id,
+      animalId: 'CONFLICT-' + conflict._id,
+      animalName: `${conflict.source} Conflict: ${conflict.location}`,
+      species: 'Human-Wildlife Encounter',
+      collarId: `${conflict.source}-HOTLINE`,
+      zoneName: conflict.location,
+      riskLevel: conflict.priority === 'HIGH' ? 'CRITICAL' : 'HIGH',
+      location: [lat, lng],
+      status: 'ACTIVE',
+      cameraTrapImageUrl:
+        conflict.imageUrl ||
+        'https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?auto=format&fit=crop&w=800&q=80',
+      notes: `[Reporter: ${conflict.reporter}] ${conflict.description}`,
+      createdAt: conflict.reportedAt,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setSelectedAlertForDispatch(conflictAlert);
+    setDispatchNotes(
+      `Deploy field patrol to resolve ${conflict.source} conflict at ${conflict.location}. Contact: ${conflict.reporter}. Note: ${conflict.description}`
+    );
+  };
+
+  const handleAcknowledgeConflict = async (conflictId: string) => {
+    try {
+      await conflictService.updateStatus(conflictId, 'ACKNOWLEDGED');
+      setConflicts((prev) =>
+        prev.map((c) =>
+          c._id === conflictId ? { ...c, status: 'ACKNOWLEDGED' } : c
+        )
+      );
+      setBannerToast('Conflict report marked as acknowledged.');
+      setTimeout(() => setBannerToast(null), 4000);
+    } catch (err) {
+      console.error('Error updating conflict status:', err);
+    }
+  };
+
+  // Compute counts and latest conflict
+  const unreadConflictCount = useMemo(
+    () => conflicts.filter((c) => c.status === 'UNREAD').length,
+    [conflicts]
+  );
+  const resolvedConflictCount = useMemo(
+    () => conflicts.filter((c) => c.status === 'RESOLVED').length,
+    [conflicts]
+  );
+
+  const filteredConflicts = useMemo(() => {
+    return conflicts.filter((c) => {
+      if (conflictFilter === 'UNREAD' && c.status !== 'UNREAD') return false;
+      if (conflictFilter === 'RESOLVED' && c.status !== 'RESOLVED') return false;
+      if (conflictSearch.trim()) {
+        const q = conflictSearch.toLowerCase();
+        return (
+          c.description.toLowerCase().includes(q) ||
+          c.reporter.toLowerCase().includes(q) ||
+          c.location.toLowerCase().includes(q) ||
+          c.source.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [conflicts, conflictFilter, conflictSearch]);
+
+  const latestConflict = useMemo(() => {
+    return conflicts.find((c) => c.status === 'UNREAD') || conflicts[0] || null;
+  }, [conflicts]);
 
   // Manager assigns ranger
   const handleAssignRanger = async () => {
@@ -210,6 +361,23 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
       setActiveAlerts((prev) =>
         prev.map((a) => (a._id === updated._id ? updated : a))
       );
+
+      // Also update conflict if this dispatch was initiated from a conflict
+      if (
+        selectedAlertForDispatch._id.startsWith('conf-') ||
+        conflicts.some((c) => c._id === selectedAlertForDispatch._id)
+      ) {
+        await conflictService
+          .updateStatus(selectedAlertForDispatch._id, 'DISPATCHED', dispatchNotes)
+          .catch(() => {});
+        setConflicts((prev) =>
+          prev.map((c) =>
+            c._id === selectedAlertForDispatch._id
+              ? { ...c, status: 'DISPATCHED', notes: dispatchNotes }
+              : c
+          )
+        );
+      }
 
       setSelectedAlertForDispatch(null);
       setBannerToast(`Field Ranger ${updated.assignedRangerName} assigned to patrol.`);
@@ -408,6 +576,10 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
             geofenceZones={geofenceZones}
             rangers={rangers}
             incidents={recordedIncidents}
+            conflicts={conflicts}
+            selectedConflictId={selectedConflict?._id}
+            onSelectConflict={(conf) => setSelectedConflict(conf)}
+            onDispatchConflict={(conf) => handleDispatchConflict(conf)}
             onDispatchIncident={(inc) => {
               setSelectedIncidentForDispatch(inc);
             }}
@@ -504,156 +676,476 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
             </div>
           </div>
 
-          {/* CARD 3: LATEST INCIDENT */}
+          {/* CARD 3: LATEST CONFLICT REPORT (Connected to live inbox) */}
           <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                LATEST INCIDENT
+                LATEST CONFLICT REPORT
               </span>
-              <span className="bg-amber-50 text-amber-700 border border-amber-200/80 px-2.5 py-0.5 rounded-md text-[11px] font-bold">
-                Pending Dispatch
+              <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${
+                latestConflict?.status === 'UNREAD'
+                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              }`}>
+                {latestConflict?.status === 'UNREAD' ? 'Pending Dispatch' : latestConflict?.status || 'Pending Dispatch'}
               </span>
             </div>
 
             <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-xs">📢</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                  {latestConflict?.source === 'SMS' ? 'SMS Hotline' : 'Citizen App'}
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  {latestConflict ? new Date(latestConflict.reportedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '12 mins ago'}
+                </span>
+              </div>
               <h3 className="font-bold text-slate-900 text-sm">
-                Crop Damage – Paddy Field
+                {latestConflict ? latestConflict.location : 'Crop Damage – Paddy Field'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Reported by W. Fernando • 12 mins ago
+                Reported by {latestConflict ? latestConflict.reporter : 'W. Fernando • 12 mins ago'}
               </p>
+              {latestConflict && (
+                <p className="text-xs text-slate-600 mt-1.5 line-clamp-2 italic bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  "{latestConflict.description}"
+                </p>
+              )}
             </div>
 
             {/* Action button */}
-            {primaryBreachAlert ? (
-              <button
-                onClick={() => setSelectedAlertForDispatch(primaryBreachAlert)}
-                className="w-full mt-2 py-2.5 bg-[#0c1427] hover:bg-[#18233c] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Dispatch Field Ranger</span>
-              </button>
-            ) : (
-              <button
-                disabled
-                className="w-full mt-2 py-2.5 bg-slate-100 text-slate-400 text-xs font-semibold rounded-xl"
-              >
-                No Active Dispatch Required
-              </button>
-            )}
+            <button
+              onClick={() => {
+                if (latestConflict) {
+                  handleDispatchConflict(latestConflict);
+                } else if (primaryBreachAlert) {
+                  setSelectedAlertForDispatch(primaryBreachAlert);
+                }
+              }}
+              className="w-full mt-2 py-2.5 bg-[#0c1427] hover:bg-[#18233c] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Dispatch Field Ranger</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* LOWER SECTION: INCIDENT & DISPATCH AUDIT LOG TABLE */}
+      {/* LOWER SECTION: UNIFIED OPERATIONS HUB (CONFLICT INBOX + GEOFENCE BREACHES) */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
-          <div>
-            <h3 className="font-bold text-slate-900 text-sm">
-              UC-04 Animal Risk Alerts & Field Dispatch Registry
-            </h3>
-            <p className="text-xs text-slate-500">
-              Audit log of real-time geofence breaches, ranger assignments, and UC-01 incident handoffs.
-            </p>
+        {/* Navigation Tabs Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-3 gap-3">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+            {/* Tab 1: Conflict Inbox */}
+            <button
+              onClick={() => setActiveOperationsTab('CONFLICTS')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeOperationsTab === 'CONFLICTS'
+                  ? 'bg-rose-50 text-rose-700 border border-rose-200 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              <Inbox className="w-4 h-4 text-rose-600" />
+              <span>Conflict Inbox & Citizen Reports</span>
+              {unreadConflictCount > 0 && (
+                <span className="bg-rose-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                  {unreadConflictCount}
+                </span>
+              )}
+            </button>
+
+            {/* Tab 2: Geofence Breaches */}
+            <button
+              onClick={() => setActiveOperationsTab('BREACHES')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeOperationsTab === 'BREACHES'
+                  ? 'bg-amber-50 text-amber-700 border border-amber-200 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              <Radio className="w-4 h-4 text-amber-600" />
+              <span>Collar Breaches & Alerts</span>
+              <span className="bg-slate-200 text-slate-700 text-[10px] font-bold px-1.5 py-0.5 rounded-md">
+                {activeAlerts.length}
+              </span>
+            </button>
+
+            {/* Tab 3: Unified Stream */}
+            <button
+              onClick={() => setActiveOperationsTab('UNIFIED')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeOperationsTab === 'UNIFIED'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              <Activity className="w-4 h-4 text-emerald-400" />
+              <span>All Incidents Log</span>
+            </button>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-medium">
-              {activeAlerts.length} Active Records
-            </span>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Quick SMS simulation button */}
+            <button
+              onClick={() => handleSimulateSms()}
+              disabled={isSimulatingSms}
+              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Simulate an incoming SMS report from citizen"
+            >
+              <PhoneCall className="w-3.5 h-3.5" />
+              <span>+ Simulate SMS</span>
+            </button>
+
+            {/* Auto SMS Simulation toggle */}
+            <button
+              onClick={() => setIsAutoSimulatingSms(!isAutoSimulatingSms)}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                isAutoSimulatingSms
+                  ? 'bg-rose-600 text-white border-rose-600'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              }`}
+              title="Toggle automatic incoming SMS simulator every 12 seconds"
+            >
+              {isAutoSimulatingSms ? 'Auto SMS: ON' : 'Auto SMS: OFF'}
+            </button>
+
             {onNavigateToDispatchLog && (
               <button
                 onClick={onNavigateToDispatchLog}
                 className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg text-xs transition-colors flex items-center gap-1"
               >
-                <span>View Full History Log</span>
+                <span>Dispatch Log</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200/80 uppercase text-[10px]">
-              <tr>
-                <th className="py-2.5 px-3">Collar / Target</th>
-                <th className="py-2.5 px-3">Zone Breached</th>
-                <th className="py-2.5 px-3">Risk Level</th>
-                <th className="py-2.5 px-3">Coordinates</th>
-                <th className="py-2.5 px-3">Assigned Ranger</th>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-sans">
-              {activeAlerts.length === 0 ? (
+        {/* TAB 1: CONFLICT INBOX VIEW */}
+        {activeOperationsTab === 'CONFLICTS' && (
+          <div className="space-y-4">
+            {/* Filters Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setConflictFilter('ALL')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                    conflictFilter === 'ALL'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  All Conflicts ({conflicts.length})
+                </button>
+                <button
+                  onClick={() => setConflictFilter('UNREAD')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                    conflictFilter === 'UNREAD'
+                      ? 'bg-rose-600 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                  <span>Unread ({unreadConflictCount})</span>
+                </button>
+                <button
+                  onClick={() => setConflictFilter('RESOLVED')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                    conflictFilter === 'RESOLVED'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  Resolved ({resolvedConflictCount})
+                </button>
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Filter by location, reporter..."
+                  value={conflictSearch}
+                  onChange={(e) => setConflictSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                />
+              </div>
+            </div>
+
+            {/* Conflicts Feed */}
+            {filteredConflicts.length === 0 ? (
+              <div className="text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <p className="text-xs text-slate-500 font-medium">No conflict reports matching current filter.</p>
+                <button
+                  onClick={() => handleSimulateSms()}
+                  className="mt-2 text-xs text-rose-600 hover:text-rose-700 font-bold"
+                >
+                  + Simulate an incoming SMS report
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {filteredConflicts.map((c) => {
+                  const isUnread = c.status === 'UNREAD';
+                  const isHigh = c.priority === 'HIGH';
+
+                  return (
+                    <div
+                      key={c._id}
+                      className={`p-4 rounded-xl border transition-all flex flex-col justify-between gap-3 ${
+                        isUnread
+                          ? 'bg-white border-rose-200 shadow-sm ring-1 ring-rose-100'
+                          : 'bg-slate-50/70 border-slate-200/80'
+                      }`}
+                    >
+                      <div>
+                        {/* Top Meta Line */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs">📢</span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                              c.source === 'SMS'
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                : 'bg-purple-50 text-purple-700 border border-purple-200'
+                            }`}>
+                              {c.source === 'SMS' ? 'SMS Hotline' : 'Citizen App'}
+                            </span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                              isHigh
+                                ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                                : 'bg-amber-50 text-amber-600 border border-amber-200'
+                            }`}>
+                              {c.priority}
+                            </span>
+                          </div>
+
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                            c.status === 'RESOLVED'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : c.status === 'DISPATCHED'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse'
+                          }`}>
+                            {c.status}
+                          </span>
+                        </div>
+
+                        {/* Location & Title */}
+                        <h4 className="font-bold text-slate-900 text-xs flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          <span>{c.location}</span>
+                        </h4>
+
+                        {/* Description */}
+                        <p className="text-xs text-slate-700 mt-1 font-normal leading-relaxed">
+                          {c.description}
+                        </p>
+
+                        {/* Image Preview if present */}
+                        {c.imageUrl && (
+                          <div className="mt-2 rounded-lg overflow-hidden border border-slate-200 max-h-24">
+                            <img src={c.imageUrl} alt="Conflict Evidence" className="w-full h-24 object-cover" />
+                          </div>
+                        )}
+
+                        {/* Reporter & Time details */}
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 mt-2.5 pt-2 border-t border-slate-100">
+                          <span>Reporter: <strong className="text-slate-700">{c.reporter}</strong></span>
+                          <span className="font-mono">{new Date(c.reportedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+
+                      {/* Action Bar */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                        {isUnread && (
+                          <button
+                            onClick={() => handleAcknowledgeConflict(c._id)}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition"
+                          >
+                            Mark Read
+                          </button>
+                        )}
+                        <div className="flex items-center gap-1.5 ml-auto">
+                          <button
+                            onClick={() => setSelectedConflict(c)}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-lg transition"
+                          >
+                            Locate
+                          </button>
+                          <button
+                            onClick={() => handleDispatchConflict(c)}
+                            className="px-3 py-1 bg-rose-700 hover:bg-rose-800 text-white text-[11px] font-bold rounded-lg shadow-sm flex items-center gap-1 transition"
+                          >
+                            <Send className="w-3 h-3" />
+                            <span>Dispatch Ranger</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: GEOFENCE BREACHES TABLE */}
+        {activeOperationsTab === 'BREACHES' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200/80 uppercase text-[10px]">
                 <tr>
-                  <td colSpan={7} className="py-6 text-center text-slate-400">
-                    No breach alerts recorded. The simulator is monitoring boundaries...
-                  </td>
+                  <th className="py-2.5 px-3">Collar / Target</th>
+                  <th className="py-2.5 px-3">Zone Breached</th>
+                  <th className="py-2.5 px-3">Risk Level</th>
+                  <th className="py-2.5 px-3">Coordinates</th>
+                  <th className="py-2.5 px-3">Assigned Ranger</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
                 </tr>
-              ) : (
-                activeAlerts.map((alert) => (
-                  <tr key={alert._id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-3">
-                      <span className="font-bold text-slate-900 block">{alert.animalName}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">{alert.collarId}</span>
-                    </td>
-                    <td className="py-3 px-3 text-slate-700 max-w-xs truncate">
-                      {alert.zoneName}
-                    </td>
-                    <td className="py-3 px-3">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          alert.riskLevel === 'CRITICAL'
-                            ? 'bg-red-50 text-red-600 border border-red-200'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200'
-                        }`}
-                      >
-                        {alert.riskLevel}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 font-mono text-slate-500">
-                      {alert.location[0].toFixed(3)}, {alert.location[1].toFixed(3)}
-                    </td>
-                    <td className="py-3 px-3">
-                      {alert.assignedRangerName ? (
-                        <span className="text-slate-800 font-medium">
-                          {alert.assignedRangerName}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 italic">Unassigned</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-3">
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          alert.status === 'ACCEPTED'
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                            : alert.status === 'REJECTED'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : alert.status === 'RESOLVED'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200'
-                        }`}
-                      >
-                        {alert.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right space-x-2">
-                      <button
-                        onClick={() => setSelectedAlertForDispatch(alert)}
-                        className="px-2.5 py-1 bg-[#0c1427] hover:bg-[#18233c] text-white rounded-lg font-semibold text-[11px] shadow-sm"
-                      >
-                        Dispatch
-                      </button>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-sans">
+                {activeAlerts.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-6 text-center text-slate-400">
+                      No breach alerts recorded. The simulator is monitoring boundaries...
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  activeAlerts.map((alert) => (
+                    <tr key={alert._id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-3">
+                        <span className="font-bold text-slate-900 block">{alert.animalName}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">{alert.collarId}</span>
+                      </td>
+                      <td className="py-3 px-3 text-slate-700 max-w-xs truncate">
+                        {alert.zoneName}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            alert.riskLevel === 'CRITICAL'
+                              ? 'bg-red-50 text-red-600 border border-red-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}
+                        >
+                          {alert.riskLevel}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 font-mono text-slate-500">
+                        {alert.location[0].toFixed(3)}, {alert.location[1].toFixed(3)}
+                      </td>
+                      <td className="py-3 px-3">
+                        {alert.assignedRangerName ? (
+                          <span className="text-slate-800 font-medium">
+                            {alert.assignedRangerName}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">Unassigned</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            alert.status === 'ACCEPTED'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : alert.status === 'REJECTED'
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : alert.status === 'RESOLVED'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}
+                        >
+                          {alert.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right space-x-2">
+                        <button
+                          onClick={() => setSelectedAlertForDispatch(alert)}
+                          className="px-2.5 py-1 bg-[#0c1427] hover:bg-[#18233c] text-white rounded-lg font-semibold text-[11px] shadow-sm cursor-pointer"
+                        >
+                          Dispatch
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* TAB 3: UNIFIED OPERATIONS STREAM */}
+        {activeOperationsTab === 'UNIFIED' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
+              <span>Combined operational timeline of collar breaches, community conflicts, and ranger incidents.</span>
+              <span className="font-bold">{activeAlerts.length + conflicts.length + recordedIncidents.length} Records Total</span>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {/* Conflicts */}
+              {conflicts.map((c) => (
+                <div key={c._id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center text-xs shrink-0">
+                      📢
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-slate-900">[{c.source} Conflict] {c.location}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">({new Date(c.reportedAt).toLocaleTimeString()})</span>
+                      </div>
+                      <p className="text-slate-600 text-[11px] truncate max-w-md">{c.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                      {c.status}
+                    </span>
+                    <button
+                      onClick={() => handleDispatchConflict(c)}
+                      className="px-2.5 py-1 bg-slate-900 text-white rounded text-[11px] font-bold"
+                    >
+                      Dispatch
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Collar Alerts */}
+              {activeAlerts.map((a) => (
+                <div key={a._id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-xs shrink-0">
+                      🐘
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-slate-900">[Collar Breach] {a.animalName}</span>
+                        <span className="text-[10px] text-amber-700 font-semibold">{a.zoneName}</span>
+                      </div>
+                      <p className="text-slate-500 text-[11px] font-mono">Collar: {a.collarId} &bull; {a.riskLevel} Risk</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                      {a.status}
+                    </span>
+                    <button
+                      onClick={() => setSelectedAlertForDispatch(a)}
+                      className="px-2.5 py-1 bg-slate-900 text-white rounded text-[11px] font-bold"
+                    >
+                      Dispatch
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* DISPATCH MODAL (Light theme styled) */}
