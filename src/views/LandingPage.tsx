@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Shield, ArrowRight, LogIn, LogOut, MapPin } from 'lucide-react';
+import { LogIn, LogOut, MapPin } from 'lucide-react';
 import { auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -25,17 +25,23 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
-      <header className="bg-white px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-        <div className="flex items-center space-x-2">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center border border-emerald-100">
-            <Shield className="w-6 h-6 text-[#003823] stroke-[2]" />
-          </div>
+    <div className="min-h-screen font-sans flex flex-col relative overflow-hidden">
+      {/* Background Image with Overlay */}
+      <div 
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1549366021-9f761d450615?q=80&w=2014&auto=format&fit=crop")' }}
+      >
+        <div className="absolute inset-0 bg-slate-900/80"></div>
+      </div>
+
+      <header className="relative z-10 px-6 py-4 flex items-center justify-between sticky top-0">
+        <div className="flex items-center space-x-3">
+          <img src="/logo.png" alt="WildGuard Logo" className="w-10 h-10 object-contain drop-shadow-md" />
           <div>
-            <h1 className="text-xl font-bold tracking-tight leading-none text-slate-900">
+            <h1 className="text-xl font-bold tracking-tight leading-none text-white">
               WildGuard
             </h1>
-            <span className="text-sm font-semibold tracking-wide text-emerald-600 uppercase">
+            <span className="text-sm font-semibold tracking-wide text-emerald-400 uppercase">
               Community
             </span>
           </div>
@@ -43,7 +49,7 @@ export default function LandingPage() {
         
         <button 
           onClick={handleAuthAction}
-          className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-[#003823] transition-colors"
+          className="flex items-center gap-2 text-sm font-bold text-white hover:text-emerald-400 transition-colors"
         >
           {user ? (
             <><LogOut className="w-4 h-4" /> Sign Out</>
@@ -53,58 +59,40 @@ export default function LandingPage() {
         </button>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center max-w-2xl mx-auto w-full">
-        <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mb-8 border-4 border-white shadow-xl shadow-emerald-900/5">
-          <Shield className="w-12 h-12 text-[#003823]" />
-        </div>
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-12 text-center max-w-2xl mx-auto w-full">
+        <img src="/logo.png" alt="WildGuard Logo" className="w-32 h-32 object-contain mb-8 drop-shadow-xl" />
         
-        <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6 tracking-tight">
+        <h2 className="text-4xl md:text-5xl font-black text-white mb-6 tracking-tight leading-tight">
           Protecting Lives.<br/>
-          <span className="text-emerald-600">Preserving Wildlife.</span>
+          <span className="text-emerald-400">Preserving Wildlife.</span>
         </h2>
         
-        <p className="text-base md:text-lg text-slate-500 mb-10 max-w-lg">
+        <p className="text-base md:text-lg text-slate-300 mb-10 max-w-lg">
           The official community network for reporting human-wildlife conflicts. Help field rangers respond faster by reporting sightings in your area.
         </p>
 
-        <div className="w-full space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
           <button 
             onClick={() => window.location.href = '/report'}
-            className="w-full bg-[#003823] hover:bg-[#002819] text-white font-bold py-5 px-6 rounded-2xl flex items-center justify-between shadow-lg shadow-[#003823]/20 transition-all active:scale-[0.98]"
+            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-lg flex items-center justify-center gap-3 transition-colors shadow-lg"
           >
-            <div className="flex items-center gap-3">
-              <div className="bg-white/20 p-2 rounded-xl">
-                <MapPin className="w-6 h-6" />
-              </div>
-              <div className="text-left">
-                <div className="text-lg">Report a Conflict</div>
-                <div className="text-xs font-normal text-emerald-100">No login required for emergencies</div>
-              </div>
-            </div>
-            <ArrowRight className="w-6 h-6" />
+            <MapPin className="w-5 h-5" />
+            Report a Conflict
           </button>
 
           {!user && (
             <button 
               onClick={() => window.location.href = '/citizen-auth'}
-              className="w-full bg-white hover:bg-slate-50 border-2 border-slate-200 text-slate-700 font-bold py-5 px-6 rounded-2xl flex items-center justify-between shadow-sm transition-all active:scale-[0.98]"
+              className="flex-1 bg-white hover:bg-slate-100 text-slate-900 font-bold py-4 px-6 rounded-lg flex items-center justify-center gap-3 transition-colors shadow-lg"
             >
-              <div className="flex items-center gap-3">
-                <div className="bg-slate-100 p-2 rounded-xl">
-                  <LogIn className="w-6 h-6 text-slate-500" />
-                </div>
-                <div className="text-left">
-                  <div className="text-lg">Join the Network</div>
-                  <div className="text-xs font-normal text-slate-400">Register to receive SMS alerts</div>
-                </div>
-              </div>
-              <ArrowRight className="w-6 h-6 text-slate-400" />
+              <LogIn className="w-5 h-5" />
+              Join the Network
             </button>
           )}
         </div>
       </main>
 
-      <footer className="py-6 text-center text-xs font-medium text-slate-400">
+      <footer className="relative z-10 py-6 text-center text-xs font-medium text-slate-400">
         &copy; {new Date().getFullYear()} WildGuard Initiative. All rights reserved.
       </footer>
     </div>

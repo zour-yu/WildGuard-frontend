@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { auth } from '../../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { ShieldCheck, Mail, Lock, User, ArrowRight, AlertCircle, ChevronLeft } from 'lucide-react';
+import { Mail, Lock, User, LogIn, ArrowRight, AlertCircle, ChevronLeft } from 'lucide-react';
 
 export default function CitizenAuth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -59,75 +59,100 @@ export default function CitizenAuth() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
-      <header className="bg-white px-4 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-        <button onClick={() => window.history.back()} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-600 hover:bg-slate-100 transition-colors">
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <h1 className="text-lg font-bold text-slate-900">{isLogin ? 'Citizen Login' : 'Create Account'}</h1>
-        <div className="w-10"></div>
-      </header>
-
-      <main className="flex-1 px-4 py-10 max-w-xl mx-auto w-full flex flex-col justify-center">
-        <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-emerald-50 text-[#003823] rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100 shadow-sm">
-            <ShieldCheck className="w-8 h-8" />
+    <div className="min-h-screen w-full flex bg-[#f8fafc] font-sans">
+      {/* Left Branding Panel (Image) */}
+      <div 
+        className="hidden lg:flex flex-col justify-between w-1/3 p-10 relative overflow-hidden bg-cover bg-center"
+        style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1549366021-9f761d450615?q=80&w=2014&auto=format&fit=crop")' }}
+      >
+        <div className="absolute inset-0 bg-slate-900/60"></div>
+        
+        <div className="relative z-10 flex items-center space-x-3">
+          <img src="/logo.png" alt="WildGuard Logo" className="w-10 h-10 object-contain drop-shadow-md" />
+          <div>
+            <h1 className="text-xl font-bold tracking-tight leading-none text-white">
+              WildGuard
+            </h1>
+            <span className="text-sm font-semibold tracking-wide text-emerald-400 uppercase">
+              Community
+            </span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">WildGuard Community</h2>
-          <p className="text-slate-500 text-sm">Join the community network to protect your village and wildlife.</p>
         </div>
 
-        {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-medium flex gap-3 items-start mb-6 border border-red-100">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <p>{error}</p>
-          </div>
-        )}
+        <div className="relative z-10 mb-10">
+          <h2 className="text-3xl font-light text-white mb-4 leading-snug">
+            Protect your village.<br />
+            Report conflicts.
+          </h2>
+          <p className="text-slate-300 text-sm leading-relaxed max-w-sm">
+            Join the community network to receive SMS alerts and report human-wildlife conflicts directly to local rangers.
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!isLogin && (
-            <>
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-2">Full Name</label>
-                <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
-                  <div className="flex items-center px-4">
-                    <User className="w-5 h-5 text-slate-400 mr-3" />
+        <div className="relative z-10 text-xs text-slate-400 font-medium">
+          &copy; {new Date().getFullYear()} WildGuard Initiative.
+        </div>
+      </div>
+
+      {/* Right Form Panel */}
+      <div className="flex-1 flex flex-col p-8 sm:p-12 overflow-y-auto">
+        <div className="w-full max-w-md mx-auto">
+          <button onClick={() => window.location.href = '/'} className="flex items-center text-sm font-bold text-slate-500 hover:text-slate-900 mb-8 transition-colors">
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            Back to Home
+          </button>
+
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-slate-900">{isLogin ? 'Citizen Login' : 'Create Account'}</h2>
+            <p className="text-slate-500 text-sm mt-1">Join the community network</p>
+          </div>
+
+          {error && (
+            <div className="mb-6 p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-xs font-semibold flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {!isLogin && (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Full Name</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <User className="h-4 w-4 text-slate-400" />
+                    </div>
                     <input
                       type="text"
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="e.g. W. Fernando"
-                      className="w-full py-4 text-sm focus:outline-none text-slate-700 placeholder-slate-400 bg-transparent"
+                      className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-colors bg-white"
                     />
                   </div>
                 </div>
-              </div>
-              
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-2">Home Address</label>
-                <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
-                  <div className="flex items-center px-4">
-                    <input
-                      type="text"
-                      required
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Street, City/Village"
-                      className="w-full py-4 text-sm focus:outline-none text-slate-700 placeholder-slate-400 bg-transparent"
-                    />
-                  </div>
-                </div>
-              </div>
 
-              <div className="flex gap-4">
-                <div className="flex-1 space-y-1">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-2">District</label>
-                  <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Home Address</label>
+                  <input
+                    type="text"
+                    required
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Street, City/Village"
+                    className="block w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-colors bg-white"
+                  />
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">District</label>
                     <select
                       value={district}
                       onChange={(e) => setDistrict(e.target.value)}
-                      className="w-full py-4 px-4 text-sm focus:outline-none text-slate-700 bg-transparent appearance-none"
+                      className="block w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-colors"
                     >
                       <option value="Ampara">Ampara</option>
                       <option value="Anuradhapura">Anuradhapura</option>
@@ -156,14 +181,12 @@ export default function CitizenAuth() {
                       <option value="Vavuniya">Vavuniya</option>
                     </select>
                   </div>
-                </div>
-                <div className="flex-1 space-y-1">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-2">Province</label>
-                  <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Province</label>
                     <select
                       value={province}
                       onChange={(e) => setProvince(e.target.value)}
-                      className="w-full py-4 px-4 text-sm focus:outline-none text-slate-700 bg-transparent appearance-none"
+                      className="block w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-colors"
                     >
                       <option value="Central">Central</option>
                       <option value="Eastern">Eastern</option>
@@ -177,65 +200,70 @@ export default function CitizenAuth() {
                     </select>
                   </div>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
 
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-2">Email Address</label>
-            <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
-              <div className="flex items-center px-4">
-                <Mail className="w-5 h-5 text-slate-400 mr-3" />
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Email Address</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-4 w-4 text-slate-400" />
+                </div>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
-                  className="w-full py-4 text-sm focus:outline-none text-slate-700 placeholder-slate-400 bg-transparent"
+                  className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-colors bg-white"
                 />
               </div>
             </div>
-          </div>
 
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-2">Password</label>
-            <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
-              <div className="flex items-center px-4">
-                <Lock className="w-5 h-5 text-slate-400 mr-3" />
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-4 w-4 text-slate-400" />
+                </div>
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Min 6 characters"
-                  className="w-full py-4 text-sm focus:outline-none text-slate-700 placeholder-slate-400 bg-transparent"
+                  className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-colors bg-white"
                 />
               </div>
             </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex justify-center items-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed mt-6"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  {isLogin ? <LogIn className="w-4 h-4 mr-2" /> : <ArrowRight className="w-4 h-4 mr-2" />}
+                  {isLogin ? 'Secure Login' : 'Create Account'}
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-8 text-center">
+            <button 
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-sm font-bold text-emerald-600 hover:text-emerald-700 transition-colors"
+            >
+              {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+            </button>
           </div>
 
-          <button 
-            type="submit"
-            disabled={loading}
-            className={`w-full text-white font-bold py-4 mt-6 h-14 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] ${
-              loading ? 'bg-[#003823]/70 cursor-wait' : 'bg-[#003823] hover:bg-[#002819] hover:shadow-xl hover:shadow-[#003823]/20'
-            }`}
-          >
-            {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
-            {!loading && <ArrowRight className="w-5 h-5" />}
-          </button>
-        </form>
-
-        <div className="mt-8 text-center">
-          <button 
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-sm font-semibold text-slate-500 hover:text-[#003823] transition-colors p-2 rounded-lg hover:bg-emerald-50"
-          >
-            {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-          </button>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
