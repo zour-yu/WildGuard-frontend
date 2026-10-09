@@ -89,9 +89,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               <Radio className="w-4 h-4 text-emerald-400" />
               <span>Telemetry & Breaches</span>
             </div>
-            <span className="bg-red-950 text-red-300 border border-red-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
-              {activeAlertCount}
-            </span>
           </button>
 
           {/* 2. Incident Box */}
@@ -107,9 +104,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               <Layers className="w-4 h-4 text-amber-400" />
               <span>Incident Box</span>
             </div>
-            <span className="bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
-              {recordedIncidentCount}
-            </span>
           </button>
 
           {/* 3. Conflict Inbox */}

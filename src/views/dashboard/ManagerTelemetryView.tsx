@@ -1106,61 +1106,111 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
               <span className="font-bold">{activeAlerts.length + conflicts.length + recordedIncidents.length} Records Total</span>
             </div>
 
-            <div className="divide-y divide-slate-100">
+            <div className="flex flex-col gap-4">
               {/* Conflicts */}
               {conflicts.map((c) => (
-                <div key={c._id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center text-xs shrink-0">
-                      📢
-                    </span>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-slate-900">[{c.source} Conflict] {c.location}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">({new Date(c.reportedAt).toLocaleTimeString()})</span>
-                      </div>
-                      <p className="text-slate-600 text-[11px] truncate max-w-md">{c.description}</p>
+                <div key={c._id} className="border rounded-xl p-5 flex flex-col gap-4 transition-all bg-white shadow-sm border-slate-200">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-semibold uppercase tracking-wide text-rose-600">
+                        {c.priority || 'MEDIUM'} Priority
+                      </span>
+                      <span className="text-slate-300">&bull;</span>
+                      <span className="flex items-center gap-1.5 text-slate-500 font-medium">
+                        <span className="w-4 h-4 rounded bg-rose-50 text-rose-600 flex items-center justify-center text-[10px]">📢</span>
+                        {c.source} Conflict
+                      </span>
+                      {c.status === 'UNREAD' && (
+                        <>
+                          <span className="text-slate-300">&bull;</span>
+                          <span className="flex items-center gap-1.5 font-medium text-rose-600">
+                            <div className="w-1.5 h-1.5 bg-rose-600 rounded-full animate-pulse"></div>
+                            Unread
+                          </span>
+                        </>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border bg-slate-50 text-slate-700 border-slate-200">
                       {c.status}
                     </span>
-                    <button
-                      onClick={() => handleDispatchConflict(c)}
-                      className="px-2.5 py-1 bg-slate-900 text-white rounded text-[11px] font-bold"
-                    >
-                      Dispatch
-                    </button>
+                  </div>
+
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900 mb-2">
+                      {c.location}
+                    </h2>
+                    <p className="text-sm text-slate-600 leading-relaxed max-w-4xl">
+                      {c.description}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-4 mt-2 pt-4 border-t border-slate-100">
+                    <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-medium text-slate-700">Time:</span> {new Date(c.reportedAt).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleDispatchConflict(c)}
+                        className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-sm font-medium shadow-sm flex items-center gap-2 transition-colors"
+                      >
+                        <Send className="w-4 h-4" />
+                        Dispatch Ranger
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
 
               {/* Collar Alerts */}
               {activeAlerts.map((a) => (
-                <div key={a._id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-xs shrink-0">
-                      🐘
-                    </span>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-slate-900">[Collar Breach] {a.animalName}</span>
-                        <span className="text-[10px] text-amber-700 font-semibold">{a.zoneName}</span>
-                      </div>
-                      <p className="text-slate-500 text-[11px] font-mono">Collar: {a.collarId} &bull; {a.riskLevel} Risk</p>
+                <div key={a._id} className="border rounded-xl p-5 flex flex-col gap-4 transition-all bg-white shadow-sm border-slate-200">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className={`font-semibold uppercase tracking-wide ${a.riskLevel === 'CRITICAL' ? 'text-red-600' : 'text-amber-600'}`}>
+                        {a.riskLevel} Risk
+                      </span>
+                      <span className="text-slate-300">&bull;</span>
+                      <span className="flex items-center gap-1.5 text-slate-500 font-medium">
+                        <span className="w-4 h-4 rounded bg-amber-50 text-amber-600 flex items-center justify-center text-[10px]">🐘</span>
+                        Collar Breach
+                      </span>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border bg-slate-50 text-slate-700 border-slate-200">
                       {a.status}
                     </span>
-                    <button
-                      onClick={() => setSelectedAlertForDispatch(a)}
-                      className="px-2.5 py-1 bg-slate-900 text-white rounded text-[11px] font-bold"
-                    >
-                      Dispatch
-                    </button>
+                  </div>
+
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900 mb-2">
+                      {a.animalName} • {a.zoneName}
+                    </h2>
+                    <p className="text-sm text-slate-600 leading-relaxed max-w-4xl font-mono">
+                      Collar ID: {a.collarId}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-4 mt-2 pt-4 border-t border-slate-100">
+                    <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-medium text-slate-700">Coordinates:</span> {a.location[0].toFixed(4)}°N, {a.location[1].toFixed(4)}°E
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-medium text-slate-700">Time:</span> {new Date(a.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSelectedAlertForDispatch(a)}
+                        className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-sm font-medium shadow-sm flex items-center gap-2 transition-colors"
+                      >
+                        <Send className="w-4 h-4" />
+                        Dispatch Ranger
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

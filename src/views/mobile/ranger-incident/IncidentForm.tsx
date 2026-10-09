@@ -369,7 +369,7 @@ export const IncidentForm: React.FC<IncidentFormProps> = ({
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-slate-900 text-slate-100 rounded-3xl shadow-2xl border border-slate-800 overflow-hidden flex flex-col font-sans">
+    <div className="w-full bg-slate-900 text-slate-100 rounded-2xl shadow-sm border border-slate-800 overflow-hidden flex flex-col font-sans">
       {/* 1. TOP-BAR NETWORK & SYNC BANNER */}
       <div
         className={`px-4 py-2.5 flex items-center justify-between transition-colors ${
@@ -476,7 +476,7 @@ export const IncidentForm: React.FC<IncidentFormProps> = ({
       )}
 
       {/* 4. MAIN FORM CONTAINER */}
-      <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto max-h-[75vh]">
+      <form onSubmit={handleSubmit} className="p-5 md:p-6 space-y-6">
         {/* A. INCIDENT TYPE SELECTOR */}
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
