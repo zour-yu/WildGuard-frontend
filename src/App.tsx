@@ -276,6 +276,7 @@ export default function App() {
                   isOpen={true}
                   onClose={() => setActiveNav('dashboard')}
                   onStatusUpdated={(updated) => setLatestBreachAlert(updated)}
+                  onViewDispatchLog={() => setActiveNav('dispatch')}
                 />
               ) : (
                 <div className="bg-slate-900 rounded-2xl p-6 text-center text-slate-400 space-y-3 min-h-[380px] flex flex-col items-center justify-center border border-slate-800">
@@ -309,6 +310,10 @@ export default function App() {
           isOpen={isTerminalModalOpen}
           onClose={() => setIsTerminalModalOpen(false)}
           onStatusUpdated={(updated) => setLatestBreachAlert(updated)}
+          onViewDispatchLog={() => {
+            setIsTerminalModalOpen(false);
+            setActiveNav('dispatch');
+          }}
         />
       </div>
     </div>
