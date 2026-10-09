@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Bell,
   Play,
@@ -24,8 +24,12 @@ import {
   GeofenceZoneData,
   RangerData,
 } from '../../types/telemetry';
+import { Incident } from '../../types/incident';
 import { telemetryService } from '../../services/telemetryService';
+import { incidentApiClient } from '../../services/api.client';
 import { getSocket } from '../../services/socket';
+import { WildlifeReserveMap } from '../../components/map/WildlifeReserveMap';
+import { rankRangersByProximity } from '../../utils/geoUtils';
 
 interface ManagerTelemetryViewProps {
   onOpenRangerTerminal?: () => void;
@@ -39,11 +43,17 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
   const [activeAlerts, setActiveAlerts] = useState<AlertDispatchData[]>([]);
   const [geofenceZones, setGeofenceZones] = useState<GeofenceZoneData[]>([]);
   const [rangers, setRangers] = useState<RangerData[]>([]);
+  const [recordedIncidents, setRecordedIncidents] = useState<Incident[]>([]);
   const [selectedAlertForDispatch, setSelectedAlertForDispatch] =
     useState<AlertDispatchData | null>(null);
+  const [selectedIncidentForDispatch, setSelectedIncidentForDispatch] =
+    useState<Incident | null>(null);
   const [selectedRangerId, setSelectedRangerId] = useState<string>('RNG-001');
   const [dispatchNotes, setDispatchNotes] = useState<string>(
-    'Deploy acoustic sirens and redirect herd back across electric boundary.'
+    'Deploy acoustic deterrents and guide herd back toward sanctuary core.'
+  );
+  const [incidentDispatchNotes, setIncidentDispatchNotes] = useState<string>(
+    'Deploy field ranger to assess incident coordinates and secure buffer zone.'
   );
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -55,17 +65,19 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const [collars, alerts, zones, availableRangers] = await Promise.all([
+      const [collars, alerts, zones, availableRangers, incidents] = await Promise.all([
         telemetryService.getLatestCollars().catch(() => []),
         telemetryService.getActiveAlerts().catch(() => []),
         telemetryService.getGeofenceZones().catch(() => []),
         telemetryService.getAvailableRangers().catch(() => []),
+        incidentApiClient.fetchIncidents().catch(() => []),
       ]);
 
       if (collars.length > 0) setTelemetryList(collars);
       setActiveAlerts(alerts);
       setGeofenceZones(zones);
       setRangers(availableRangers);
+      setRecordedIncidents(incidents);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
     } finally {
@@ -97,9 +109,21 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
         return [newBreach, ...prev];
       });
       setBannerToast(
-        `CRITICAL GEOFENCE BREACH: ${newBreach.animalName} crossed into ${newBreach.zoneName}`
+        `Boundary Advisory: ${newBreach.animalName} approached ${newBreach.zoneName}`
       );
       setTimeout(() => setBannerToast(null), 8000);
+    });
+
+    socket.on('incident:updated', (updatedInc: Incident) => {
+      setRecordedIncidents((prev) => {
+        const index = prev.findIndex((i) => i.id === updatedInc.id);
+        if (index >= 0) {
+          const next = [...prev];
+          next[index] = updatedInc;
+          return next;
+        }
+        return [updatedInc, ...prev];
+      });
     });
 
     socket.on('dispatch:updated', (payload: any) => {
@@ -122,6 +146,7 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
     return () => {
       socket.off('telemetry:ping');
       socket.off('animal:breach');
+      socket.off('incident:updated');
       socket.off('dispatch:updated');
     };
   }, []);
@@ -147,10 +172,57 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
       );
 
       setSelectedAlertForDispatch(null);
-      setBannerToast(`Field Ranger ${updated.assignedRangerName} dispatched.`);
+      setBannerToast(`Field Ranger ${updated.assignedRangerName} assigned to patrol.`);
       setTimeout(() => setBannerToast(null), 5000);
     } catch (err) {
       console.error('Error assigning ranger:', err);
+    } finally {
+      setIsDispatching(false);
+    }
+  };
+
+  // Assign ranger to UC-01 threat incident
+  const handleAssignRangerToIncident = async () => {
+    if (!selectedIncidentForDispatch) return;
+
+    const chosenRanger = rangers.find((r) => r.rangerId === selectedRangerId);
+    try {
+      setIsDispatching(true);
+      const updated = await incidentApiClient.dispatchIncident(
+        selectedIncidentForDispatch.id,
+        {
+          rangerId: selectedRangerId,
+          rangerName: chosenRanger?.name,
+          notes: incidentDispatchNotes,
+        }
+      );
+
+      setRecordedIncidents((prev) =>
+        prev.map((i) => (i.id === updated.id ? updated : i))
+      );
+      setSelectedIncidentForDispatch(null);
+      setBannerToast(
+        `Field Ranger ${chosenRanger?.name || selectedRangerId} assigned to incident.`
+      );
+      setTimeout(() => setBannerToast(null), 5000);
+    } catch (err) {
+      console.warn('Incident dispatch optimistic update fallback:', err);
+      const optimisticUpdated: Incident = {
+        ...selectedIncidentForDispatch,
+        status: 'DISPATCHED',
+        assignedRangerId: selectedRangerId,
+        assignedRangerName: chosenRanger?.name || `Ranger ${selectedRangerId}`,
+        dispatchNotes: incidentDispatchNotes,
+        dispatchedAt: new Date().toISOString(),
+      };
+      setRecordedIncidents((prev) =>
+        prev.map((i) => (i.id === optimisticUpdated.id ? optimisticUpdated : i))
+      );
+      setSelectedIncidentForDispatch(null);
+      setBannerToast(
+        `Field Ranger ${chosenRanger?.name || selectedRangerId} assigned (Local).`
+      );
+      setTimeout(() => setBannerToast(null), 5000);
     } finally {
       setIsDispatching(false);
     }
@@ -232,7 +304,7 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
             <span className="hidden sm:inline">Step GPS</span>
           </button>
 
-          {/* Notification Bell with Red Badge Dot from screenshot */}
+          {/* Notification Bell with Red Badge Dot */}
           <div className="relative p-2.5 bg-white rounded-xl border border-slate-200/90 shadow-sm text-slate-600 hover:text-slate-900 cursor-pointer">
             <Bell className="w-4 h-4" />
             <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
@@ -240,27 +312,27 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
         </div>
       </div>
 
-      {/* BREACH ALERT BANNER (Active when geofence is violated) */}
+      {/* BOUNDARY ADVISORY BANNER (Active when elephant is near buffer) */}
       {primaryBreachAlert && (
-        <div className="bg-red-50/90 border border-red-200 text-slate-900 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-amber-50/90 border border-amber-200 text-slate-900 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-5 h-5 animate-pulse" />
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+              <Radio className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="bg-red-600 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider">
-                  GEOFENCE BREACH
+                <span className="bg-amber-600 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded tracking-wider">
+                  BOUNDARY ADVISORY
                 </span>
-                <span className="text-xs font-mono text-red-700 font-semibold">
+                <span className="text-xs font-mono text-amber-800 font-semibold">
                   Collar: {primaryBreachAlert.collarId}
                 </span>
               </div>
               <p className="text-sm font-bold text-slate-900 mt-0.5">
-                {primaryBreachAlert.animalName} entered {primaryBreachAlert.zoneName}
+                {primaryBreachAlert.animalName} approached {primaryBreachAlert.zoneName}
               </p>
               <p className="text-xs text-slate-500">
-                Ray-Casting algorithm confirmed boundary breach. Immediate response required.
+                Collar telemetry indicates herd movement near agricultural buffer. Recommended action: assign patrol unit.
               </p>
             </div>
           </div>
@@ -268,10 +340,10 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSelectedAlertForDispatch(primaryBreachAlert)}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-all"
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-all"
             >
               <Send className="w-3.5 h-3.5" />
-              Dispatch Ranger
+              Assign Ranger Patrol
             </button>
             {onOpenRangerTerminal && (
               <button
@@ -289,97 +361,18 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
       {/* MAIN TWO-COLUMN DASHBOARD GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* LEFT / CENTER CARD: INTERACTIVE GEOFENCE MAP & SPATIAL HOTSPOT GRID */}
-        <div className="lg:col-span-8 bg-white border border-slate-200/90 rounded-2xl shadow-sm p-4 flex flex-col justify-between min-h-[460px]">
-          {/* Subtle Grid Canvas */}
-          <div className="bg-grid-pattern-dense border border-slate-100 rounded-xl flex-1 p-4 relative min-h-[400px] flex flex-col justify-between overflow-hidden">
-            
-            {/* Top Info Tags */}
-            <div className="flex items-center justify-between z-10">
-              <div className="bg-white/95 backdrop-blur-sm border border-slate-200/90 rounded-lg px-3 py-1.5 shadow-sm text-xs font-semibold text-slate-700 flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-blue-600" />
-                <span>Sector: Galwala Boundary (Grid 8A)</span>
-              </div>
-
-              <div className="bg-white/95 backdrop-blur-sm border border-slate-200/90 rounded-lg px-3 py-1.5 shadow-sm text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <span>Sensor Network: Operational</span>
-              </div>
-            </div>
-
-            {/* Central Cluster Markers Matching the Screenshot */}
-            <div className="relative w-full h-56 flex items-center justify-center my-auto">
-              {/* Simulated Geofence Danger Boundary Line */}
-              <div className="absolute inset-x-12 inset-y-6 border-2 border-dashed border-red-300 rounded-3xl pointer-events-none opacity-40 bg-red-50/20"></div>
-
-              {/* Marker 3 (Amber - Top) */}
-              <div
-                className="absolute top-6 left-[46%] transform -translate-x-1/2 group cursor-pointer"
-                title="Cluster 3: Corridor Transit Path"
-              >
-                <div className="w-7 h-7 rounded-full bg-[#f59e0b] text-white flex items-center justify-center font-bold text-xs shadow-md">
-                  3
-                </div>
-              </div>
-
-              {/* Marker 6 (Orange - Left) */}
-              <div
-                className="absolute top-28 left-[32%] transform -translate-x-1/2 group cursor-pointer"
-                title="Cluster 6: Farmland Perimeter Boundary"
-              >
-                <div className="w-8 h-8 rounded-full bg-[#f97316] text-white flex items-center justify-center font-bold text-xs shadow-md">
-                  6
-                </div>
-              </div>
-
-              {/* Marker 14 (Critical Hotspot - Center Left from Screenshot) */}
-              <div
-                className="absolute top-36 left-[45%] transform -translate-x-1/2 group cursor-pointer z-20"
-                title="Primary Hotspot: Active Elephant Geofence Breach"
-                onClick={() => primaryBreachAlert && setSelectedAlertForDispatch(primaryBreachAlert)}
-              >
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-[#b91c1c] text-white flex items-center justify-center font-bold text-sm shadow-lg shadow-red-500/30 ring-4 ring-red-100 animate-pulse">
-                    14
-                  </div>
-                  {/* Tooltip Card overlay on the primary hotspot */}
-                  <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white text-[10px] font-semibold px-2.5 py-1 rounded-md shadow-md whitespace-nowrap flex items-center gap-1.5 pointer-events-none">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping"></span>
-                    <span>Tusker 04 • Breach Active</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Marker 7 (Red - Right) */}
-              <div
-                className="absolute top-32 left-[68%] transform -translate-x-1/2 group cursor-pointer"
-                title="Cluster 7: Water Reservoir Edge"
-              >
-                <div className="w-7 h-7 rounded-full bg-[#dc2626] text-white flex items-center justify-center font-bold text-xs shadow-md">
-                  7
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Info Tags */}
-            <div className="flex items-center justify-between z-10 pt-2">
-              <div className="bg-white/95 backdrop-blur-sm border border-slate-200/90 rounded-lg px-3 py-1.5 shadow-sm text-xs font-mono font-medium text-slate-600">
-                Coordinates: {currentTelemetry.location[0].toFixed(4)}° N,{' '}
-                {currentTelemetry.location[1].toFixed(4)}° E
-              </div>
-
-              <div className="bg-white/95 backdrop-blur-sm border border-slate-200/90 rounded-lg px-3 py-1.5 shadow-sm text-xs text-slate-500 flex items-center gap-3">
-                <span className="flex items-center gap-1">
-                  <span className="font-semibold text-slate-700">Battery:</span>{' '}
-                  <span className="text-emerald-600 font-bold">{currentTelemetry.batteryLevel}%</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="font-semibold text-slate-700">Speed:</span>{' '}
-                  <span>{currentTelemetry.speedKmh || 4.2} km/h</span>
-                </span>
-              </div>
-            </div>
-          </div>
+        {/* LEFT / CENTER CARD: REAL HIGH-FIDELITY SATELLITE & RESERVE SPATIAL MAP */}
+        <div className="lg:col-span-8 flex flex-col justify-between">
+          <WildlifeReserveMap
+            telemetryList={telemetryList}
+            geofenceZones={geofenceZones}
+            rangers={rangers}
+            incidents={recordedIncidents}
+            onDispatchIncident={(inc) => {
+              setSelectedIncidentForDispatch(inc);
+            }}
+            height="500px"
+          />
         </div>
 
         {/* RIGHT COLUMN: 3 STACKED CARDS MATCHING EXACT SCREENSHOT */}
@@ -643,17 +636,22 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
               </p>
             </div>
 
-            {/* Select Ranger */}
+            {/* Select Ranger (Ranked by Proximity) */}
             <div className="space-y-1.5 text-xs">
-              <label className="font-semibold text-slate-700">Select Available Field Ranger:</label>
+              <div className="flex items-center justify-between">
+                <label className="font-semibold text-slate-700">Select Closest Field Ranger Unit:</label>
+                <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Proximity Auto-Ranked
+                </span>
+              </div>
               <select
                 value={selectedRangerId}
                 onChange={(e) => setSelectedRangerId(e.target.value)}
                 className="w-full bg-white border border-slate-200 p-2.5 rounded-xl text-slate-800 font-medium focus:ring-2 focus:ring-blue-500"
               >
-                {rangers.map((r) => (
-                  <option key={r.rangerId} value={r.rangerId}>
-                    {r.name} ({r.callsign}) - Status: {r.status}
+                {rankRangersByProximity(selectedAlertForDispatch.location, rangers).map(({ ranger, distanceMeters, etaMinutes }, idx) => (
+                  <option key={ranger.rangerId} value={ranger.rangerId}>
+                    {idx === 0 ? '⭐ Nearest: ' : ''}{ranger.name} ({ranger.callsign}) — {distanceMeters}m away (ETA ~{etaMinutes} min) [{ranger.status}]
                   </option>
                 ))}
               </select>
@@ -683,6 +681,98 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
               </button>
               <button
                 onClick={() => setSelectedAlertForDispatch(null)}
+                className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* INCIDENT PATROL DISPATCH MODAL (Triggered from Map Pins) */}
+      {selectedIncidentForDispatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white border border-slate-200 w-full max-w-lg rounded-2xl p-6 shadow-2xl text-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Send className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-base font-bold text-slate-900">
+                  Assign Ranger Patrol to {selectedIncidentForDispatch.type}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedIncidentForDispatch(null)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Target Incident details */}
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900 text-sm uppercase">
+                  {selectedIncidentForDispatch.type}
+                </span>
+                <span className="text-[10px] font-mono bg-slate-200 text-slate-800 px-2 py-0.5 rounded font-bold">
+                  {selectedIncidentForDispatch.id}
+                </span>
+              </div>
+              <p className="text-slate-700 font-medium">
+                {selectedIncidentForDispatch.description}
+              </p>
+              <p className="text-slate-500 font-mono">
+                Coordinates: {selectedIncidentForDispatch.coordinates[0].toFixed(5)}° N,{' '}
+                {selectedIncidentForDispatch.coordinates[1].toFixed(5)}° E
+              </p>
+            </div>
+
+            {/* Select Ranger (Ranked by Proximity) */}
+            <div className="space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <label className="font-semibold text-slate-700">Select Available Field Ranger:</label>
+                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Proximity Auto-Ranked
+                </span>
+              </div>
+              <select
+                value={selectedRangerId}
+                onChange={(e) => setSelectedRangerId(e.target.value)}
+                className="w-full bg-white border border-slate-200 p-2.5 rounded-xl text-slate-800 font-medium focus:ring-2 focus:ring-emerald-500"
+              >
+                {rankRangersByProximity(selectedIncidentForDispatch.coordinates, rangers).map(({ ranger, distanceMeters, etaMinutes }, idx) => (
+                  <option key={ranger.rangerId} value={ranger.rangerId}>
+                    {idx === 0 ? '⭐ Nearest: ' : ''}{ranger.name} ({ranger.callsign}) — {distanceMeters}m away (ETA ~{etaMinutes} min) [{ranger.status}]
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Field Directives */}
+            <div className="space-y-1.5 text-xs">
+              <label className="font-semibold text-slate-700">Field Patrol Directives:</label>
+              <textarea
+                value={incidentDispatchNotes}
+                onChange={(e) => setIncidentDispatchNotes(e.target.value)}
+                rows={3}
+                className="w-full bg-white border border-slate-200 p-2.5 rounded-xl text-slate-800 text-xs focus:ring-2 focus:ring-emerald-500"
+                placeholder="Directives for evidence collection, incident verification, or perimeter sweep..."
+              />
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={handleAssignRangerToIncident}
+                disabled={isDispatching}
+                className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm rounded-xl shadow-sm flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                Confirm & Assign Ranger
+              </button>
+              <button
+                onClick={() => setSelectedIncidentForDispatch(null)}
                 className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-sm"
               >
                 Cancel

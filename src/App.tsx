@@ -14,6 +14,8 @@ import {
 import { ManagerTelemetryView } from './views/dashboard/ManagerTelemetryView';
 import { RangerDispatchModal } from './views/ranger-terminal/RangerDispatchModal';
 import { IncidentForm } from './views/mobile/ranger-incident/IncidentForm';
+import { IncidentLogView } from './views/mobile/ranger-incident/IncidentLogView';
+import { incidentApiClient } from './services/api.client';
 import { telemetryService } from './services/telemetryService';
 import { getSocket } from './services/socket';
 import { AlertDispatchData } from './types/telemetry';
@@ -23,11 +25,17 @@ export default function App() {
     'dashboard' | 'inbox' | 'dispatch' | 'contacts' | 'terminal' | 'record-incident'
   >('dashboard');
   const [activeAlertCount, setActiveAlertCount] = useState<number>(3);
+  const [recordedIncidentCount, setRecordedIncidentCount] = useState<number>(0);
   const [latestBreachAlert, setLatestBreachAlert] = useState<AlertDispatchData | null>(null);
   const [isTerminalModalOpen, setIsTerminalModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
-    // Initial fetch of active alerts
+    // Initial fetch of active alerts and recorded incidents
+    incidentApiClient
+      .fetchIncidents()
+      .then((data) => setRecordedIncidentCount(data.length))
+      .catch((err) => console.warn('Could not fetch incidents count:', err));
+
     telemetryService
       .getActiveAlerts()
       .then((alerts) => {
@@ -116,8 +124,8 @@ export default function App() {
                 <Inbox className="w-4 h-4" />
                 <span>Incident Inbox</span>
               </div>
-              <span className="bg-[#1e293b] text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded-md">
-                {activeAlertCount}
+              <span className="bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                {recordedIncidentCount}
               </span>
             </button>
 
@@ -241,6 +249,9 @@ export default function App() {
               }}
             />
           </div>
+        ) : activeNav === 'inbox' ? (
+          /* Central Incident Inbox & Feed */
+          <IncidentLogView />
         ) : activeNav === 'terminal' ? (
           /* Dedicated Ranger Mobile Terminal Tab (UC-04) */
           <div className="flex-1 flex flex-col items-center justify-center p-6 bg-[#070b14]">
