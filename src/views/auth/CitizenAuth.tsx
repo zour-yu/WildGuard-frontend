@@ -87,91 +87,131 @@ export default function CitizenAuth() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <>
-              <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
-                <div className="flex items-center px-4">
-                  <User className="w-5 h-5 text-slate-400 mr-3" />
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Full Name"
-                    className="w-full py-4 text-sm focus:outline-none text-slate-700 placeholder-slate-400 bg-transparent"
-                  />
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-2">Full Name</label>
+                <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
+                  <div className="flex items-center px-4">
+                    <User className="w-5 h-5 text-slate-400 mr-3" />
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. W. Fernando"
+                      className="w-full py-4 text-sm focus:outline-none text-slate-700 placeholder-slate-400 bg-transparent"
+                    />
+                  </div>
                 </div>
               </div>
               
-              <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
-                <div className="flex items-center px-4">
-                  <input
-                    type="text"
-                    required
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Home Address"
-                    className="w-full py-4 text-sm focus:outline-none text-slate-700 placeholder-slate-400 bg-transparent"
-                  />
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-2">Home Address</label>
+                <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
+                  <div className="flex items-center px-4">
+                    <input
+                      type="text"
+                      required
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Street, City/Village"
+                      className="w-full py-4 text-sm focus:outline-none text-slate-700 placeholder-slate-400 bg-transparent"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="flex gap-4">
-                <div className="flex-1 bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
-                  <select
-                    value={district}
-                    onChange={(e) => setDistrict(e.target.value)}
-                    className="w-full py-4 px-4 text-sm focus:outline-none text-slate-700 bg-transparent appearance-none"
-                  >
-                    <option value="Colombo">Colombo</option>
-                    <option value="Kandy">Kandy</option>
-                    <option value="Anuradhapura">Anuradhapura</option>
-                    <option value="Galle">Galle</option>
-                    <option value="Jaffna">Jaffna</option>
-                    <option value="Ratnapura">Ratnapura</option>
-                  </select>
+                <div className="flex-1 space-y-1">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-2">District</label>
+                  <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
+                    <select
+                      value={district}
+                      onChange={(e) => setDistrict(e.target.value)}
+                      className="w-full py-4 px-4 text-sm focus:outline-none text-slate-700 bg-transparent appearance-none"
+                    >
+                      <option value="Ampara">Ampara</option>
+                      <option value="Anuradhapura">Anuradhapura</option>
+                      <option value="Badulla">Badulla</option>
+                      <option value="Batticaloa">Batticaloa</option>
+                      <option value="Colombo">Colombo</option>
+                      <option value="Galle">Galle</option>
+                      <option value="Gampaha">Gampaha</option>
+                      <option value="Hambantota">Hambantota</option>
+                      <option value="Jaffna">Jaffna</option>
+                      <option value="Kalutara">Kalutara</option>
+                      <option value="Kandy">Kandy</option>
+                      <option value="Kegalle">Kegalle</option>
+                      <option value="Kilinochchi">Kilinochchi</option>
+                      <option value="Kurunegala">Kurunegala</option>
+                      <option value="Mannar">Mannar</option>
+                      <option value="Matale">Matale</option>
+                      <option value="Matara">Matara</option>
+                      <option value="Moneragala">Moneragala</option>
+                      <option value="Mullaitivu">Mullaitivu</option>
+                      <option value="Nuwara Eliya">Nuwara Eliya</option>
+                      <option value="Polonnaruwa">Polonnaruwa</option>
+                      <option value="Puttalam">Puttalam</option>
+                      <option value="Ratnapura">Ratnapura</option>
+                      <option value="Trincomalee">Trincomalee</option>
+                      <option value="Vavuniya">Vavuniya</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="flex-1 bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
-                  <select
-                    value={province}
-                    onChange={(e) => setProvince(e.target.value)}
-                    className="w-full py-4 px-4 text-sm focus:outline-none text-slate-700 bg-transparent appearance-none"
-                  >
-                    <option value="Western">Western</option>
-                    <option value="Central">Central</option>
-                    <option value="North Central">North Central</option>
-                    <option value="Southern">Southern</option>
-                    <option value="Northern">Northern</option>
-                    <option value="Sabaragamuwa">Sabaragamuwa</option>
-                  </select>
+                <div className="flex-1 space-y-1">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-2">Province</label>
+                  <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
+                    <select
+                      value={province}
+                      onChange={(e) => setProvince(e.target.value)}
+                      className="w-full py-4 px-4 text-sm focus:outline-none text-slate-700 bg-transparent appearance-none"
+                    >
+                      <option value="Central">Central</option>
+                      <option value="Eastern">Eastern</option>
+                      <option value="North Central">North Central</option>
+                      <option value="Northern">Northern</option>
+                      <option value="North Western">North Western</option>
+                      <option value="Sabaragamuwa">Sabaragamuwa</option>
+                      <option value="Southern">Southern</option>
+                      <option value="Uva">Uva</option>
+                      <option value="Western">Western</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </>
           )}
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
-            <div className="flex items-center px-4">
-              <Mail className="w-5 h-5 text-slate-400 mr-3" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email Address"
-                className="w-full py-4 text-sm focus:outline-none text-slate-700 placeholder-slate-400 bg-transparent"
-              />
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-2">Email Address</label>
+            <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
+              <div className="flex items-center px-4">
+                <Mail className="w-5 h-5 text-slate-400 mr-3" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full py-4 text-sm focus:outline-none text-slate-700 placeholder-slate-400 bg-transparent"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
-            <div className="flex items-center px-4">
-              <Lock className="w-5 h-5 text-slate-400 mr-3" />
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full py-4 text-sm focus:outline-none text-slate-700 placeholder-slate-400 bg-transparent"
-              />
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-2">Password</label>
+            <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm focus-within:border-[#003823] focus-within:ring-1 focus-within:ring-[#003823] transition-all">
+              <div className="flex items-center px-4">
+                <Lock className="w-5 h-5 text-slate-400 mr-3" />
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Min 6 characters"
+                  className="w-full py-4 text-sm focus:outline-none text-slate-700 placeholder-slate-400 bg-transparent"
+                />
+              </div>
             </div>
           </div>
 
