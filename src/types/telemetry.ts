@@ -58,4 +58,7 @@ export interface RangerData {
   status: 'AVAILABLE' | 'ON_PATROL' | 'BUSY';
   location: [number, number];
   batteryLevel: number;
+  distanceKm?: number;
+  etaMinutes?: number;
+  isNearest?: boolean;
 }

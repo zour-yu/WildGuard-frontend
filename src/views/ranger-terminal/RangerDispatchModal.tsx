@@ -21,21 +21,24 @@ interface RangerDispatchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onStatusUpdated?: (updated: AlertDispatchData) => void;
+  onViewDispatchLog?: () => void;
 }
 
 export const RangerDispatchModal: React.FC<RangerDispatchModalProps> = ({
   alert,
-  currentRangerId = 'RNG-001',
+  currentRangerId = 'RNG-002',
   isOpen,
   onClose,
   onStatusUpdated,
+  onViewDispatchLog,
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rejectMode, setRejectMode] = useState(false);
   const [rejectReason, setRejectReason] = useState('Obstacle / River crossing blocked');
   const [resolveMode, setResolveMode] = useState(false);
+  const [resolutionSuccess, setResolutionSuccess] = useState(false);
   const [resolveNotes, setResolveNotes] = useState(
-    'Flares and noise deterrent deployed. Elephant herd redirected back past electric fence perimeter.'
+    'Flares and acoustic sirens deployed. Alpha elephant herd safely redirected back past electric perimeter fence. Zero casualties or village crop damage.'
   );
 
   if (!isOpen || !alert) return null;
@@ -233,36 +236,109 @@ export const RangerDispatchModal: React.FC<RangerDispatchModalProps> = ({
 
         {/* RESOLVE MODE FORM (Handoff to UC-01) */}
         {resolveMode && (
-          <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-xs space-y-2">
-            <div className="flex items-center gap-1.5 text-emerald-800 font-bold">
-              <FileCheck2 className="w-4 h-4 text-emerald-600" />
-              <span>UC-01 Wildlife Incident Resolution Log</span>
+          <div className="bg-emerald-50 p-3.5 rounded-xl border border-emerald-200 text-xs space-y-2.5">
+            <div className="flex items-center justify-between text-emerald-800 font-bold">
+              <div className="flex items-center gap-1.5">
+                <FileCheck2 className="w-4 h-4 text-emerald-600" />
+                <span>UC-01 Wildlife Incident Resolution Log</span>
+              </div>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-mono font-bold">
+                AUTO-ARCHIVE
+              </span>
             </div>
+
             <p className="text-slate-600 text-[11px]">
-              Document field actions taken. Upon resolving, this record automatically hands off into the permanent incident registry.
+              Document on-scene field deterrents and containment actions. This report will automatically store in the permanent Dispatch History registry.
             </p>
-            <textarea
-              value={resolveNotes}
-              onChange={(e) => setResolveNotes(e.target.value)}
-              rows={3}
-              className="w-full p-2 rounded border border-emerald-300 bg-white text-slate-800 text-xs focus:ring-1 focus:ring-emerald-500"
-              placeholder="Detail on-scene deterrent used, herd status, damage check..."
-            />
-            <div className="flex gap-2">
+
+            {/* Quick Presets */}
+            <div className="space-y-1">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase">
+                Quick Action Directives:
+              </span>
+              <div className="flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setResolveNotes(
+                      'Flares and acoustic sirens deployed. Alpha elephant herd safely redirected back past electric boundary fence into reserve. Zero casualties or village crop damage.'
+                    )
+                  }
+                  className="text-left text-[11px] p-1.5 bg-white hover:bg-emerald-100/60 border border-emerald-200 rounded-lg text-slate-700 transition-colors"
+                >
+                  ⚡ Acoustic Sirens & Guided Herd Back past Fence
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setResolveNotes(
+                      'Solar flashers activated and community alerted. Escorted solitary bull back towards Handapanagala sanctuary. Electric fence line verified intact.'
+                    )
+                  }
+                  className="text-left text-[11px] p-1.5 bg-white hover:bg-emerald-100/60 border border-emerald-200 rounded-lg text-slate-700 transition-colors"
+                >
+                  🛡️ Escorted Bull to Sanctuary • Fence Line Intact
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-700">
+                Incident Resolution Details & Field Notes:
+              </label>
+              <textarea
+                value={resolveNotes}
+                onChange={(e) => setResolveNotes(e.target.value)}
+                rows={3}
+                className="w-full p-2.5 rounded-xl border border-emerald-300 bg-white text-slate-800 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                placeholder="Detail on-scene deterrent used, herd status, damage check..."
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
               <button
                 onClick={handleResolve}
                 disabled={isSubmitting}
-                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-md shadow-emerald-600/20"
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5"
               >
-                Confirm Resolution & Log Incident
+                <FileCheck2 className="w-4 h-4" />
+                <span>Confirm Resolution & Store in Log</span>
               </button>
               <button
                 onClick={() => setResolveMode(false)}
-                className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg"
+                className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-semibold"
               >
                 Cancel
               </button>
             </div>
+          </div>
+        )}
+
+        {/* POST-RESOLUTION SUCCESS BANNER */}
+        {alert.status === 'RESOLVED' && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 space-y-2 text-center text-xs">
+            <div className="flex items-center justify-center gap-1.5 text-emerald-800 font-bold">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Incident Successfully Resolved & Logged</span>
+            </div>
+            <p className="text-slate-600 text-[11px]">
+              This dispatch has been marked resolved and permanently archived into the Dispatch History log with ID:{' '}
+              <span className="font-mono font-bold text-emerald-700">
+                {alert.incidentHandoffId || 'INC-ARCHIVED'}
+              </span>
+            </p>
+            {onViewDispatchLog && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onViewDispatchLog();
+                }}
+                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5"
+              >
+                <span>View Incident in Dispatch Log</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         )}
 
