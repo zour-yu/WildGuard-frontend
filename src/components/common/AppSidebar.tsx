@@ -55,8 +55,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           className="flex items-center space-x-3 px-1 cursor-pointer"
           onClick={() => onNavigate('telemetry')}
         >
-          <div className="w-8 h-8 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-            <Shield className="w-5 h-5 stroke-[2]" />
+          <div className="w-8 h-8 flex items-center justify-center shrink-0">
+            <img src="/logo.png" alt="WildGuard Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <h1 className="text-base font-bold text-white tracking-tight leading-none">
@@ -89,9 +89,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               <Radio className="w-4 h-4 text-emerald-400" />
               <span>Telemetry & Breaches</span>
             </div>
-            <span className="bg-red-950 text-red-300 border border-red-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
-              {activeAlertCount}
-            </span>
           </button>
 
           {/* 2. Incident Box */}
@@ -107,9 +104,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               <Layers className="w-4 h-4 text-amber-400" />
               <span>Incident Box</span>
             </div>
-            <span className="bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-md">
-              {recordedIncidentCount}
-            </span>
           </button>
 
           {/* 3. Conflict Inbox */}
@@ -174,17 +168,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             onClick={() => onNavigate('record-incident')}
             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
               activeNav === 'record-incident'
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50'
-                : 'text-emerald-400 hover:text-white hover:bg-emerald-950/40 border border-emerald-800/40'
+                ? 'bg-[#18233c] text-white border border-slate-700/50'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
             }`}
           >
             <div className="flex items-center space-x-3">
-              <PlusCircle className="w-4 h-4" />
-              <span>Record Incident (UC-01)</span>
+              <PlusCircle className="w-4 h-4 text-emerald-400" />
+              <span>Record Incident</span>
             </div>
-            <span className="bg-emerald-900/60 text-emerald-200 text-[9px] font-bold px-1.5 py-0.5 rounded">
-              Mobile
-            </span>
           </button>
 
           {/* UC-04: Ranger Terminal */}
@@ -198,12 +189,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           >
             <div className="flex items-center space-x-3">
               <Smartphone className="w-4 h-4 text-emerald-400" />
-              <span>Ranger Terminal (UC-04)</span>
+              <span>Ranger Terminal</span>
             </div>
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
           </button>
         </nav>
       </div>
