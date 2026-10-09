@@ -183,6 +183,10 @@ export default function App() {
   }
 
   if (currentPath === '/staff' || currentPath === '/admin' || currentPath === '/login') {
+    if (!authLoading && user) {
+      window.location.href = '/dashboard';
+      return null;
+    }
     return <LoginScreen />;
   }
 

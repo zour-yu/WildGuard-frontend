@@ -16,7 +16,7 @@ export default function LoginScreen() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       localStorage.setItem('userType', 'Officer');
-      // App.tsx onAuthStateChanged will handle routing automatically
+      window.location.href = '/dashboard';
     } catch (err: any) {
       setError(err.message || 'Failed to login with email and password.');
     } finally {
@@ -30,7 +30,8 @@ export default function LoginScreen() {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      // App.tsx onAuthStateChanged will handle routing automatically
+      localStorage.setItem('userType', 'Officer');
+      window.location.href = '/dashboard';
     } catch (err: any) {
       setError(err.message || 'Failed to login with Google.');
     } finally {
