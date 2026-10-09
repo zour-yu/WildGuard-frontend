@@ -21,6 +21,8 @@ import ConflictInbox from './views/conflicts/ConflictInbox';
 import ConflictResolutionDetail from './views/conflicts/ConflictResolutionDetail';
 import LoginScreen from './views/auth/LoginScreen';
 import ReportConflict from './views/citizen/ReportConflict';
+import CitizenAuth from './views/auth/CitizenAuth';
+import LandingPage from './views/LandingPage';
 import { auth } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -77,8 +79,19 @@ export default function App() {
   }, []);
 
   // PUBLIC ROUTES (No Auth Required)
+  if (window.location.pathname === '/') {
+    const userType = localStorage.getItem('userType');
+    // Let Officer fall through to Dashboard, everyone else sees Landing Page
+    if (!user || userType !== 'Officer') {
+      return <LandingPage />;
+    }
+  }
   if (window.location.pathname === '/report') {
     return <ReportConflict />;
+  }
+  
+  if (window.location.pathname === '/citizen-auth' || window.location.pathname === '/citizen-login') {
+    return <CitizenAuth />;
   }
 
   // Global Auth Guard
@@ -91,7 +104,11 @@ export default function App() {
   }
 
   if (!user) {
-    return <LoginScreen />;
+    if (window.location.pathname === '/officer') {
+      return <LoginScreen />;
+    }
+    // Default public landing for unauthenticated
+    return <LandingPage />;
   }
 
   // Conditionally render the standalone Conflict views (they have their own full-screen layouts and sidebars)

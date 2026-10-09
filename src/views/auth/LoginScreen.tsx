@@ -15,6 +15,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      localStorage.setItem('userType', 'Officer');
       // App.tsx onAuthStateChanged will handle routing automatically
     } catch (err: any) {
       setError(err.message || 'Failed to login with email and password.');
