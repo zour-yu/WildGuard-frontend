@@ -39,22 +39,14 @@ import { incidentApiClient } from '../../../services/api.client';
 import { getSocket } from '../../../services/socket';
 import { Incident, IncidentType } from '../../../types/incident';
 import { RangerData } from '../../../types/telemetry';
-import { WildlifeReserveMap } from '../../../components/map/WildlifeReserveMap';
 import { rankRangersByProximity } from '../../../utils/geoUtils';
 
-// Available field rangers for tactical deployment
-const AVAILABLE_RANGERS = [
-  { id: 'RNG-001', name: 'Sgt. Tharaka Bandara', callsign: 'Kestrel-1', sector: 'Sector 1 (North Ridge)', status: 'AVAILABLE', battery: 94 },
-  { id: 'RNG-002', name: 'Officer Nimal Silva', callsign: 'Rhino-3', sector: 'Sector 2 (Reservoir)', status: 'AVAILABLE', battery: 88 },
-  { id: 'RNG-003', name: 'Officer Chaminda Perera', callsign: 'Eagle-2', sector: 'Sector 4 (Farmland 8A)', status: 'ON_PATROL', battery: 76 },
-  { id: 'RNG-004', name: 'Ranger Dilshan Jayasinghe', callsign: 'Falcon-4', sector: 'Sector 5 (West Buffer)', status: 'AVAILABLE', battery: 92 },
-];
-
+// Available field rangers for tactical deployment with coordinates
 const RANGER_MAP_DATA: RangerData[] = [
-  { rangerId: 'RNG-001', name: 'Sgt. Tharaka Bandara', callsign: 'Kestrel-1', status: 'AVAILABLE', location: [6.854, 80.974], batteryLevel: 94 }, // Sector 1
-  { rangerId: 'RNG-002', name: 'Officer Nimal Silva', callsign: 'Rhino-3', status: 'AVAILABLE', location: [6.850, 81.004], batteryLevel: 88 }, // Sector 2
-  { rangerId: 'RNG-003', name: 'Officer Chaminda Perera', callsign: 'Eagle-2', status: 'ON_PATROL', location: [6.818, 80.975], batteryLevel: 76 }, // Sector 4
-  { rangerId: 'RNG-004', name: 'Ranger Dilshan Jayasinghe', callsign: 'Falcon-4', status: 'AVAILABLE', location: [6.836, 80.966], batteryLevel: 92 }, // Sector 5
+  { rangerId: 'RNG-001', name: 'Sgt. Tharaka Bandara', callsign: 'Kestrel-1', status: 'AVAILABLE', location: [6.4820, 80.8920], batteryLevel: 94 },
+  { rangerId: 'RNG-002', name: 'Officer Nimal Silva', callsign: 'Rhino-3', status: 'AVAILABLE', location: [6.5120, 80.9150], batteryLevel: 88 },
+  { rangerId: 'RNG-003', name: 'Officer Chaminda Perera', callsign: 'Eagle-2', status: 'ON_PATROL', location: [6.4650, 80.8710], batteryLevel: 76 },
+  { rangerId: 'RNG-004', name: 'Ranger Dilshan Jayasinghe', callsign: 'Falcon-4', status: 'AVAILABLE', location: [6.5250, 80.8800], batteryLevel: 92 },
 ];
 
 export const IncidentLogView: React.FC = () => {
@@ -62,7 +54,6 @@ export const IncidentLogView: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
-  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
 
   // Dispatch Modal State
   const [isDispatchModalOpen, setIsDispatchModalOpen] = useState<boolean>(false);
@@ -126,7 +117,7 @@ export const IncidentLogView: React.FC = () => {
   const handleConfirmDispatch = async () => {
     if (!selectedIncident) return;
 
-    const chosenRanger = AVAILABLE_RANGERS.find((r) => r.id === selectedRangerId);
+    const chosenRanger = RANGER_MAP_DATA.find((r) => r.rangerId === selectedRangerId);
     try {
       setIsSubmittingDispatch(true);
       const updated = await incidentApiClient.dispatchIncident(selectedIncident.id, {
@@ -307,119 +298,103 @@ export const IncidentLogView: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* View Switcher & Filters */}
+      {/* Filter and Control Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 my-5">
         <div className="flex items-center space-x-2">
-          {/* Map vs List View Toggle */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-1 flex items-center text-xs">
-            <button
-              onClick={() => setViewMode('map')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
-                viewMode === 'map' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>Interactive Map</span>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
-                viewMode === 'list' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Incident List</span>
-            </button>
-          </div>
-
           {/* Type Filters */}
-          <div className="hidden sm:flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs">
+          <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs">
             {['ALL', 'SNARE', 'CARCASS', 'ILLEGAL_CAMPSITE'].map((f) => (
               <button
                 key={f}
                 onClick={() => setSelectedFilter(f)}
-                className={`px-2.5 py-1.5 rounded-lg font-bold transition text-[11px] ${
-                  selectedFilter === f ? 'bg-slate-800 text-white border border-slate-700' : 'text-slate-400 hover:text-white'
+                className={`px-3 py-1.5 rounded-lg font-bold transition text-[11px] ${
+                  selectedFilter === f ? 'bg-slate-800 text-white border border-slate-700 shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 {f}
               </button>
             ))}
           </div>
+          <span className="text-xs text-slate-400 font-medium ml-2">
+            Showing <strong className="text-white">{incidents.length}</strong> recorded incidents
+          </span>
         </div>
 
         <button
           onClick={fetchIncidents}
           disabled={isLoading}
-          className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-slate-300 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold"
+          className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-slate-300 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-400' : ''}`} />
           <span>Refresh Feed</span>
         </button>
       </div>
 
-      {/* Main Workspace: Spatial Map / List on Left, Comprehensive Inspector on Right */}
+      {/* Main Workspace: Incident List on Left, Comprehensive Inspector on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* LEFT COLUMN: INTERACTIVE MAP OR LIST */}
+        {/* LEFT COLUMN: INCIDENT LIST */}
         <div className="lg:col-span-7 flex flex-col space-y-4">
-          {viewMode === 'map' ? (
-            /* REAL INTERACTIVE SATELLITE & RESERVE SPATIAL MAP */
-            <WildlifeReserveMap
-              incidents={incidents}
-              selectedIncidentId={selectedIncident?.id}
-              onSelectIncident={(inc) => setSelectedIncident(inc)}
-              onDispatchIncident={(inc) => {
-                setSelectedIncident(inc);
-                setIsDispatchModalOpen(true);
-              }}
-              rangers={RANGER_MAP_DATA}
-              height="540px"
-            />
-          ) : (
-            /* INCIDENT LIST VIEW */
-            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-              {incidents.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => setSelectedIncident(item)}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all ${
-                    selectedIncident?.id === item.id
-                      ? 'bg-slate-800/90 border-emerald-500/70 shadow-lg shadow-emerald-950/30'
-                      : 'bg-slate-900/80 border-slate-800 hover:bg-slate-800/50 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <span className="p-1.5 rounded-lg bg-slate-950 border border-slate-800">
-                        {getTypeIcon(item.type)}
-                      </span>
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border uppercase ${getTypeBadge(item.type)}`}>
-                        {item.type}
+          <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800/80">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Field Incident Threat Queue</h3>
+              </div>
+              <span className="text-[11px] font-mono text-slate-500">
+                Sorted by latest report
+              </span>
+            </div>
+
+            {incidents.length === 0 ? (
+              <div className="text-center py-12 text-slate-400 border border-dashed border-slate-800 rounded-xl">
+                <AlertTriangle className="w-8 h-8 text-amber-500/60 mx-auto mb-2" />
+                <p className="text-sm font-semibold">No incidents found matching "{selectedFilter}"</p>
+                <p className="text-xs text-slate-500 mt-1">Try switching filter tabs or refreshing the feed</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[640px] overflow-y-auto pr-1">
+                {incidents.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => setSelectedIncident(item)}
+                    className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                      selectedIncident?.id === item.id
+                        ? 'bg-slate-800/95 border-emerald-500/70 shadow-lg shadow-emerald-950/30'
+                        : 'bg-slate-900/80 border-slate-800 hover:bg-slate-800/50 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="p-1.5 rounded-lg bg-slate-950 border border-slate-800">
+                          {getTypeIcon(item.type)}
+                        </span>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border uppercase ${getTypeBadge(item.type)}`}>
+                          {item.type}
+                        </span>
+                      </div>
+
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${getStatusBadge(item.status)}`}>
+                        {item.status}
                       </span>
                     </div>
 
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${getStatusBadge(item.status)}`}>
-                      {item.status}
-                    </span>
-                  </div>
+                    <p className="text-xs font-medium text-slate-200 line-clamp-2 mb-2">
+                      {item.description}
+                    </p>
 
-                  <p className="text-xs font-medium text-slate-200 line-clamp-2 mb-2">
-                    {item.description}
-                  </p>
-
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800/60">
-                    <span className="flex items-center gap-1 font-mono text-emerald-400">
-                      <MapPin className="w-3 h-3" />
-                      {item.coordinates[0].toFixed(4)}°N, {item.coordinates[1].toFixed(4)}°E
-                    </span>
-                    <span className="font-mono text-slate-500">{item.id}</span>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800/60">
+                      <span className="flex items-center gap-1 font-mono text-emerald-400">
+                        <MapPin className="w-3 h-3" />
+                        {item.coordinates[0].toFixed(4)}°N, {item.coordinates[1].toFixed(4)}°E
+                      </span>
+                      <span className="font-mono text-slate-500">{item.id}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* RIGHT COLUMN: DETAILED INCIDENT INSPECTOR & DISPATCH ACTIONS */}

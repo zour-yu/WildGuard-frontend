@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { CollarTelemetryData, GeofenceZoneData, RangerData } from '../../types/telemetry';
 import { Incident } from '../../types/incident';
+import { ConflictReport } from '../../types/conflict';
 import { calculateDistanceMeters } from '../../utils/geoUtils';
 
 export interface WildlifeReserveMapProps {
@@ -39,9 +40,13 @@ export interface WildlifeReserveMapProps {
   geofenceZones?: GeofenceZoneData[];
   rangers?: RangerData[];
   incidents?: Incident[];
+  conflicts?: ConflictReport[];
   selectedIncidentId?: string | null;
+  selectedConflictId?: string | null;
   onSelectIncident?: (incident: Incident) => void;
   onDispatchIncident?: (incident: Incident) => void;
+  onSelectConflict?: (conflict: ConflictReport) => void;
+  onDispatchConflict?: (conflict: ConflictReport) => void;
   height?: string;
   center?: [number, number];
   zoom?: number;
@@ -212,9 +217,13 @@ export const WildlifeReserveMap: React.FC<WildlifeReserveMapProps> = ({
   geofenceZones = [],
   rangers = [],
   incidents = [],
+  conflicts = [],
   selectedIncidentId,
+  selectedConflictId,
   onSelectIncident,
   onDispatchIncident,
+  onSelectConflict,
+  onDispatchConflict,
   height = '500px',
   center = SANCTUARY_CENTER,
   zoom = 14,
@@ -229,6 +238,7 @@ export const WildlifeReserveMap: React.FC<WildlifeReserveMapProps> = ({
   const breadcrumbGroupRef = useRef<L.LayerGroup | null>(null);
   const telemetryGroupRef = useRef<L.LayerGroup | null>(null);
   const incidentsGroupRef = useRef<L.LayerGroup | null>(null);
+  const conflictsGroupRef = useRef<L.LayerGroup | null>(null);
   const rangersGroupRef = useRef<L.LayerGroup | null>(null);
 
   // Trajectory history
@@ -241,6 +251,7 @@ export const WildlifeReserveMap: React.FC<WildlifeReserveMapProps> = ({
   const [showAnimals, setShowAnimals] = useState<boolean>(true);
   const [showBreadcrumbs, setShowBreadcrumbs] = useState<boolean>(false); // Default off for neatness
   const [showIncidents, setShowIncidents] = useState<boolean>(true);
+  const [showConflicts, setShowConflicts] = useState<boolean>(true);
   const [showRangers, setShowRangers] = useState<boolean>(true);
   const [cursorCoords, setCursorCoords] = useState<[number, number]>(SANCTUARY_CENTER);
 
@@ -268,6 +279,7 @@ export const WildlifeReserveMap: React.FC<WildlifeReserveMapProps> = ({
       breadcrumbGroupRef.current = L.layerGroup().addTo(map);
       telemetryGroupRef.current = L.layerGroup().addTo(map);
       incidentsGroupRef.current = L.layerGroup().addTo(map);
+      conflictsGroupRef.current = L.layerGroup().addTo(map);
       rangersGroupRef.current = L.layerGroup().addTo(map);
 
       map.on('mousemove', (e: L.LeafletMouseEvent) => {
@@ -682,6 +694,156 @@ export const WildlifeReserveMap: React.FC<WildlifeReserveMapProps> = ({
     });
   }, [rangers, showRangers]);
 
+  // 8. Render Community Conflict Markers - Distinct Logo (📢 Megaphone / Alert Broadcast Emblem)
+  useEffect(() => {
+    if (!mapInstanceRef.current || !conflictsGroupRef.current) return;
+    conflictsGroupRef.current.clearLayers();
+
+    if (!showConflicts) return;
+
+    const sectorFallbackSpots: [number, number][] = [
+      [6.8224, 80.9742], // Sector 4: Farmland 8A Buffer
+      [6.8378, 80.9658], // Sector 5: Western Settlement Buffer
+      [6.8512, 80.9984], // Sector 2: Reservoir Basin
+      [6.8182, 80.9815], // Sector 4 South
+      [6.8290, 81.0040], // Sector 6: Eastern Transit Corridor
+      [6.8550, 80.9750], // Sector 1: Northern Ridge
+    ];
+
+    conflicts.forEach((conflict, index) => {
+      // Determine coordinates within sanctuary bounding box
+      let lat = conflict.latitude;
+      let lng = conflict.longitude;
+      if (!lat || !lng || lat < 6.80 || lat > 6.87 || lng < 80.95 || lng > 81.03) {
+        const fallback = sectorFallbackSpots[index % sectorFallbackSpots.length];
+        lat = fallback[0];
+        lng = fallback[1];
+      }
+
+      const isSelected = selectedConflictId === conflict._id;
+      const isUnread = conflict.status === 'UNREAD';
+      const isResolved = conflict.status === 'RESOLVED';
+      const isHighPriority = conflict.priority === 'HIGH';
+
+      // Distinct Logo: Megaphone Broadcast (📢) with Crimson/Rose Badge and Pulse Halo
+      const conflictHtml = `
+        <div class="relative flex items-center justify-center cursor-pointer group">
+          ${
+            isUnread
+              ? `
+                <!-- Animated Alert Ping Halo for Active Unread Conflicts -->
+                <span class="animate-ping absolute -inset-1.5 rounded-full bg-rose-500/40"></span>
+                <span class="animate-pulse absolute -inset-2.5 rounded-full bg-amber-400/20"></span>
+
+                <!-- Floating Alert Chip -->
+                <div class="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-rose-950/95 border border-rose-500/70 text-rose-200 font-black text-[8px] px-2 py-0.5 rounded-md shadow-lg whitespace-nowrap flex items-center gap-1 z-30">
+                  <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+                  <span>📢 ${conflict.source} ALERT</span>
+                </div>
+              `
+              : ''
+          }
+
+          <!-- Core Conflict Pin: Distinct Rose/Crimson Pin with Megaphone Emblem -->
+          <div class="w-8 h-8 rounded-full ${
+            isResolved
+              ? 'bg-emerald-600 ring-2 ring-white shadow-md'
+              : isHighPriority
+              ? 'bg-rose-600 ring-2 ring-white shadow-xl'
+              : 'bg-amber-600 ring-2 ring-white shadow-lg'
+          } text-white flex items-center justify-center font-bold text-xs transition-transform group-hover:scale-125 ${
+            isSelected ? 'scale-125 ring-4 ring-rose-400' : ''
+          }">
+            📢
+          </div>
+
+          <!-- Clean Hover Tooltip -->
+          <div class="absolute -bottom-7 left-1/2 transform -translate-x-1/2 bg-slate-900/95 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow whitespace-nowrap border border-slate-700 hidden group-hover:flex items-center gap-1 z-30">
+            <span class="text-rose-400 font-bold">[${conflict.source}]</span>
+            <span class="truncate max-w-[140px]">${conflict.location}</span>
+          </div>
+        </div>
+      `;
+
+      const icon = L.divIcon({
+        html: conflictHtml,
+        className: 'custom-conflict-marker',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+
+      const marker = L.marker([lat, lng], { icon });
+
+      marker.on('click', () => {
+        if (onSelectConflict) onSelectConflict(conflict);
+      });
+
+      // Rich Inspector Popup on Click
+      const popupContent = document.createElement('div');
+      popupContent.className = 'font-sans p-2 text-slate-800 space-y-2 min-w-[220px] max-w-[280px]';
+      popupContent.innerHTML = `
+        <div class="flex items-center justify-between border-b pb-1">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs">📢</span>
+            <span class="font-black text-xs text-rose-700 uppercase tracking-wide">
+              ${conflict.source === 'SMS' ? 'SMS Hotline Report' : 'Citizen App Alert'}
+            </span>
+          </div>
+          <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase ${
+            isResolved
+              ? 'bg-emerald-100 text-emerald-800'
+              : isUnread
+              ? 'bg-rose-100 text-rose-800'
+              : 'bg-amber-100 text-amber-800'
+          }">
+            ${conflict.status}
+          </span>
+        </div>
+
+        ${
+          conflict.imageUrl
+            ? `<div class="rounded-lg overflow-hidden border max-h-24"><img src="${conflict.imageUrl}" alt="Conflict evidence" class="w-full h-24 object-cover" /></div>`
+            : ''
+        }
+
+        <p class="text-xs font-semibold text-slate-900 leading-snug">
+          ${conflict.description}
+        </p>
+
+        <div class="space-y-1 text-[10px] text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-200">
+          <div class="flex justify-between">
+            <span class="text-slate-400">Reporter:</span>
+            <strong class="text-slate-800">${conflict.reporter}</strong>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Location:</span>
+            <span class="font-medium text-slate-700">${conflict.location}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Priority:</span>
+            <strong class="${isHighPriority ? 'text-rose-600' : 'text-amber-600'}">${conflict.priority}</strong>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Time:</span>
+            <span class="font-mono">${new Date(conflict.reportedAt).toLocaleTimeString()}</span>
+          </div>
+        </div>
+      `;
+
+      if (conflict.status !== 'RESOLVED' && onDispatchConflict) {
+        const btn = document.createElement('button');
+        btn.className =
+          'w-full py-2 bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs rounded-lg uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm mt-1 cursor-pointer transition';
+        btn.innerHTML = '<span>Assign Ranger Patrol</span>';
+        btn.onclick = () => onDispatchConflict(conflict);
+        popupContent.appendChild(btn);
+      }
+
+      marker.bindPopup(popupContent);
+      conflictsGroupRef.current?.addLayer(marker);
+    });
+  }, [conflicts, showConflicts, selectedConflictId]);
+
   // Sector Selection Handler
   const handleSectorSelect = (sectorId: string) => {
     setSelectedSector(sectorId);
@@ -862,6 +1024,18 @@ export const WildlifeReserveMap: React.FC<WildlifeReserveMapProps> = ({
           }`}
         >
           👮 Rangers ({rangers.length})
+        </button>
+
+        <button
+          onClick={() => setShowConflicts(!showConflicts)}
+          className={`px-2 py-1 rounded-xl text-[10px] font-bold border transition ${
+            showConflicts
+              ? 'bg-rose-950/80 text-rose-300 border-rose-700 shadow-sm'
+              : 'bg-slate-950 text-slate-500 border-slate-800'
+          }`}
+          title="Toggle Community Conflict Hotspots & SMS reports"
+        >
+          📢 Conflicts ({conflicts.length})
         </button>
       </div>
     </div>
