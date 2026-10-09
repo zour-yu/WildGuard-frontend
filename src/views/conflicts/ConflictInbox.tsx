@@ -25,7 +25,7 @@ import { auth } from '../../firebase';
 import { getSocket } from '../../services/socket';
 import { AppSidebar } from '../../components/common/AppSidebar';
 
-export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'dashboard' | 'inbox' | 'resolution') => void }) {
+export default function ConflictInbox({ onNavigate, userProfile }: { onNavigate?: (view: 'dashboard' | 'inbox' | 'resolution') => void, userProfile?: any }) {
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [customSms, setCustomSms] = useState('');
@@ -105,6 +105,7 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
         onNavigate={onNavigate as any}
         unreadConflictCount={unreadCount}
         onSignOut={() => auth.signOut()}
+        userProfile={userProfile}
       />
 
       {/* Main Content Area */}

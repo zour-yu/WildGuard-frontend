@@ -15,7 +15,7 @@ import {
 import { AppSidebar } from '../../components/common/AppSidebar';
 import { auth } from '../../firebase';
 
-export default function ConflictResolutionDetail({ onNavigate }: { onNavigate?: (view: any) => void }) {
+export default function ConflictResolutionDetail({ onNavigate, userProfile }: { onNavigate?: (view: any) => void, userProfile?: any }) {
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
         {/* UNIFIED SIDEBAR (Matching Telemetry & Breaches) */}
@@ -23,6 +23,7 @@ export default function ConflictResolutionDetail({ onNavigate }: { onNavigate?: 
           activeNav="resolution"
           onNavigate={onNavigate as any}
           onSignOut={() => auth.signOut()}
+          userProfile={userProfile}
         />
 
         {/* Main Content Area */}

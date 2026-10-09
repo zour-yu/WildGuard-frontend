@@ -80,6 +80,7 @@ export default function App() {
 
   // Auth State
   const [user, setUser] = useState<User | null>(null);
+  const [mongoUser, setMongoUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   // Helper to switch view and update browser address bar
@@ -97,8 +98,27 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        try {
+          const token = await currentUser.getIdToken();
+          const response = await fetch('http://localhost:5000/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await response.json();
+          if (data.success && data.user) {
+            setMongoUser(data.user);
+            if (data.user.role === 'Park Manager') {
+               setActiveNav((prev) => prev === 'inbox' ? 'telemetry' : prev);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch mongo user", err);
+        }
+      } else {
+        setMongoUser(null);
+      }
       setAuthLoading(false);
     });
     return () => unsubscribe();
@@ -184,7 +204,7 @@ export default function App() {
   if (activeNav === 'inbox') {
     return (
       <>
-        <ConflictInbox onNavigate={navigate as any} />
+        <ConflictInbox onNavigate={navigate as any} userProfile={mongoUser} />
         <RangerDispatchModal
           alert={latestBreachAlert}
           isOpen={isTerminalModalOpen}
@@ -199,7 +219,7 @@ export default function App() {
   if (activeNav === 'resolution') {
     return (
       <>
-        <ConflictResolutionDetail onNavigate={navigate as any} />
+        <ConflictResolutionDetail onNavigate={navigate as any} userProfile={mongoUser} />
         <RangerDispatchModal
           alert={latestBreachAlert}
           isOpen={isTerminalModalOpen}
@@ -221,6 +241,7 @@ export default function App() {
         activeAlertCount={activeAlertCount}
         recordedIncidentCount={recordedIncidentCount}
         user={user}
+        userProfile={mongoUser}
         onSignOut={async () => {
           await auth.signOut();
           localStorage.removeItem('userType');
