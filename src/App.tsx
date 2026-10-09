@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ManagerTelemetryView } from './views/dashboard/ManagerTelemetryView';
 import { RangerDispatchModal } from './views/ranger-terminal/RangerDispatchModal';
+import { ManagerDispatchModal } from './components/modals/ManagerDispatchModal';
 import { DispatchLogView } from './views/dispatch/DispatchLogView';
 import { IncidentLogView } from './views/mobile/ranger-incident/IncidentLogView';
 import { IncidentForm } from './views/mobile/ranger-incident/IncidentForm';
@@ -208,13 +209,37 @@ export default function App() {
   if (activeNav === 'inbox') {
     return (
       <>
-        <ConflictInbox onNavigate={navigate as any} userProfile={mongoUser} />
-        <RangerDispatchModal
+        <ConflictInbox 
+          onNavigate={navigate as any} 
+          userProfile={mongoUser} 
+          onDispatchPatrol={(conflict) => {
+            setLatestBreachAlert({
+              _id: conflict._id,
+              animalId: 'N/A',
+              animalName: 'Unknown (Citizen Report)',
+              species: 'Unknown',
+              collarId: 'N/A',
+              zoneName: conflict.location || 'Unknown Sector',
+              riskLevel: conflict.priority === 'HIGH' ? 'CRITICAL' : conflict.priority === 'MEDIUM' ? 'HIGH' : 'MEDIUM',
+              location: [6.82, 80.14], // Default center
+              status: 'ACTIVE',
+              cameraTrapImageUrl: conflict.imageUrl || 'https://images.unsplash.com/photo-1549480017-d76466a4b7e8?auto=format&fit=crop&q=80',
+              notes: conflict.description,
+              createdAt: conflict.reportedAt,
+              updatedAt: conflict.reportedAt
+            });
+            setIsTerminalModalOpen(true);
+          }}
+        />
+        <ManagerDispatchModal
           alert={latestBreachAlert}
           isOpen={isTerminalModalOpen}
           onClose={() => setIsTerminalModalOpen(false)}
           onStatusUpdated={(updated) => setLatestBreachAlert(updated)}
-          onViewDispatchLog={() => navigate('dispatch')}
+          onViewDispatchLog={() => {
+            setIsTerminalModalOpen(false);
+            navigate('dispatch');
+          }}
         />
       </>
     );
@@ -224,12 +249,15 @@ export default function App() {
     return (
       <>
         <ConflictResolutionDetail onNavigate={navigate as any} userProfile={mongoUser} />
-        <RangerDispatchModal
+        <ManagerDispatchModal
           alert={latestBreachAlert}
           isOpen={isTerminalModalOpen}
           onClose={() => setIsTerminalModalOpen(false)}
           onStatusUpdated={(updated) => setLatestBreachAlert(updated)}
-          onViewDispatchLog={() => navigate('dispatch')}
+          onViewDispatchLog={() => {
+            setIsTerminalModalOpen(false);
+            navigate('dispatch');
+          }}
         />
       </>
     );

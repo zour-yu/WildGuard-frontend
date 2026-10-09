@@ -485,7 +485,9 @@ export const DispatchLogView: React.FC<DispatchLogViewProps> = ({
                     Dispatch Incident Record #{selectedIncident._id.slice(-6).toUpperCase()}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Use Case 04 Field Response and UC-01 Incident Registry Log
+                    {selectedIncident.collarId === 'N/A' 
+                      ? 'Community Conflict Response and Field Dispatch Log'
+                      : 'Use Case 04 Field Response and UC-01 Incident Registry Log'}
                   </p>
                 </div>
               </div>
@@ -507,8 +509,8 @@ export const DispatchLogView: React.FC<DispatchLogViewProps> = ({
                 alt={selectedIncident.animalName}
                 className="w-full h-44 object-cover"
               />
-              <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-emerald-400 text-[10px] font-mono px-2 py-0.5 rounded border border-emerald-500/30">
-                VERIFIED ELEPHANT TELEMETRY
+              <div className={`absolute top-3 left-3 bg-black/60 backdrop-blur-md text-[10px] font-mono px-2 py-0.5 rounded border ${selectedIncident.collarId === 'N/A' ? 'text-rose-400 border-rose-500/30' : 'text-emerald-400 border-emerald-500/30'}`}>
+                {selectedIncident.collarId === 'N/A' ? 'CITIZEN CONFLICT REPORT' : 'VERIFIED ELEPHANT TELEMETRY'}
               </div>
               <div className="absolute bottom-3 left-3 right-3 bg-black/75 backdrop-blur-sm p-2.5 rounded-xl text-white text-xs flex justify-between items-center">
                 <div>
@@ -538,7 +540,7 @@ export const DispatchLogView: React.FC<DispatchLogViewProps> = ({
               </span>
               <div className="grid grid-cols-3 gap-2 text-center pt-1">
                 <div className="bg-white p-2 rounded-lg border border-slate-200">
-                  <span className="text-[10px] text-slate-400 block">1. GEOFENCE BREACH</span>
+                  <span className="text-[10px] text-slate-400 block">{selectedIncident.collarId === 'N/A' ? '1. CONFLICT REPORTED' : '1. GEOFENCE BREACH'}</span>
                   <span className="font-bold text-slate-800 text-[11px] block mt-0.5">
                     {formatDate(selectedIncident.createdAt)}
                   </span>
@@ -564,7 +566,7 @@ export const DispatchLogView: React.FC<DispatchLogViewProps> = ({
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <span className="text-[10px] text-slate-400 font-semibold uppercase block">
-                  Breach Location
+                  {selectedIncident.collarId === 'N/A' ? 'Incident Location' : 'Breach Location'}
                 </span>
                 <p className="font-bold text-slate-800 mt-0.5">{selectedIncident.zoneName}</p>
                 <p className="font-mono text-slate-500 text-[10px] mt-0.5">

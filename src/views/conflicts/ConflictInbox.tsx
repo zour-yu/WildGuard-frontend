@@ -25,7 +25,7 @@ import { auth } from '../../firebase';
 import { getSocket } from '../../services/socket';
 import { AppSidebar } from '../../components/common/AppSidebar';
 
-export default function ConflictInbox({ onNavigate, userProfile }: { onNavigate?: (view: 'dashboard' | 'inbox' | 'resolution') => void, userProfile?: any }) {
+export default function ConflictInbox({ onNavigate, userProfile, onDispatchPatrol }: { onNavigate?: (view: 'dashboard' | 'inbox' | 'resolution') => void, userProfile?: any, onDispatchPatrol?: (conflict: any) => void }) {
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [customSms, setCustomSms] = useState('');
@@ -258,17 +258,20 @@ export default function ConflictInbox({ onNavigate, userProfile }: { onNavigate?
             {/* Top KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-start gap-3">
-                <div className="mt-0.5 text-red-500">
-                  <AlertCircle className="w-5 h-5" />
+                <div className="mt-0.5 text-indigo-500">
+                  <Inbox className="w-5 h-5" />
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between items-start">
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Pending Verification</h3>
-                    {unreadCount > 0 && (
-                      <span className="bg-red-50 text-red-700 border border-red-100 text-[10px] font-semibold px-2 py-0.5 rounded-full">Immediate Action</span>
-                    )}
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total Reports Today</h3>
                   </div>
-                  <p className="text-2xl font-bold text-slate-900">{unreadCount} <span className="text-sm font-normal text-slate-500">Conflicts</span></p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {(() => {
+                      const today = new Date().toDateString();
+                      return conflicts.filter(c => new Date(c.reportedAt).toDateString() === today).length;
+                    })()}
+                    <span className="text-sm font-normal text-slate-500 ml-1">Received</span>
+                  </p>
                 </div>
               </div>
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-start gap-3">
@@ -292,9 +295,10 @@ export default function ConflictInbox({ onNavigate, userProfile }: { onNavigate?
                   <p className="text-2xl font-bold text-slate-900 truncate" title={
                     (() => {
                       if (conflicts.length === 0) return 'N/A';
-                      const locs = conflicts.map(c => c.location || 'Unknown');
+                      const locs = conflicts.map(c => c.location).filter(loc => loc && !loc.includes('Unknown'));
+                      if (locs.length === 0) return 'N/A';
                       const counts = locs.reduce((acc, curr) => {
-                        acc[curr] = (acc[curr] || 0) + 1;
+                        acc[curr as string] = (acc[curr as string] || 0) + 1;
                         return acc;
                       }, {} as Record<string, number>);
                       return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
@@ -302,9 +306,10 @@ export default function ConflictInbox({ onNavigate, userProfile }: { onNavigate?
                   }>
                     {(() => {
                       if (conflicts.length === 0) return 'N/A';
-                      const locs = conflicts.map(c => c.location || 'Unknown');
+                      const locs = conflicts.map(c => c.location).filter(loc => loc && !loc.includes('Unknown'));
+                      if (locs.length === 0) return 'N/A';
                       const counts = locs.reduce((acc, curr) => {
-                        acc[curr] = (acc[curr] || 0) + 1;
+                        acc[curr as string] = (acc[curr as string] || 0) + 1;
                         return acc;
                       }, {} as Record<string, number>);
                       return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
@@ -435,10 +440,31 @@ export default function ConflictInbox({ onNavigate, userProfile }: { onNavigate?
                           >
                             View Details
                           </button>
-                          <button className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-sm font-medium transition-colors flex items-center gap-2 shadow-sm">
-                            <Send className="w-4 h-4" />
-                            Dispatch Patrol
-                          </button>
+                          {conflict.status === 'DISPATCHED' ? (
+                            <button 
+                              disabled
+                              className="px-4 py-1.5 bg-slate-100 text-slate-500 rounded-md text-sm font-medium border border-slate-200 cursor-not-allowed flex items-center gap-2"
+                            >
+                              <Clock className="w-4 h-4" />
+                              Unit Dispatched
+                            </button>
+                          ) : conflict.status === 'RESOLVED' ? (
+                            <button 
+                              disabled
+                              className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-md text-sm font-medium border border-emerald-200 cursor-not-allowed flex items-center gap-2"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              Resolved
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => onDispatchPatrol?.(conflict)}
+                              className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
+                            >
+                              <Send className="w-4 h-4" />
+                              Dispatch Patrol
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
