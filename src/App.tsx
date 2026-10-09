@@ -200,11 +200,10 @@ export default function App() {
     );
   }
 
-  // If unauthenticated and on root, redirect to landing
-  if (!user && (currentPath === '' || currentPath === '/')) {
-    return <LandingPage />;
+  // If unauthenticated and trying to access a protected route, show staff login
+  if (!user) {
+    return <LoginScreen />;
   }
-
   // Standalone Conflict Views
   if (activeNav === 'inbox') {
     return (
@@ -378,14 +377,14 @@ export default function App() {
           </div>
         ) : activeNav === 'record-incident' ? (
           /* UC-01: Dedicated Mobile Field View */
-          <div className="flex-1 p-6 md:p-8 space-y-6 bg-[#070b14] text-slate-100">
+          <div className="flex-1 p-6 md:p-8 pb-32 space-y-6 bg-slate-50 text-slate-900">
             <div>
               <div className="flex items-center gap-2">
               </div>
-              <h1 className="text-xl md:text-2xl font-black text-white mt-2">
+              <h1 className="text-xl md:text-2xl font-black text-slate-900 mt-2">
                 Ranger Field Incident Logger
               </h1>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 Offline-First Mobile Interface with GPS Geolocation, Photo Capture, and Strategy-Pattern Validation.
               </p>
             </div>

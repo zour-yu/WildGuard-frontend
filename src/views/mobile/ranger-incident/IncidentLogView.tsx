@@ -268,12 +268,7 @@ export const IncidentLogView: React.FC = () => {
       {/* Header & KPI Summary Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between pb-6 border-b border-slate-200 gap-4">
         <div>
-          <div className="flex items-center space-x-2">
-            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
-              Operational Command Hub
-            </span>
-            <span className="text-xs text-slate-500">• Galwala Wildlife Sanctuary</span>
-          </div>
+
           <h1 className="text-xl md:text-2xl font-black text-slate-900 mt-1">
             Wildlife Threat Map & Incident Dispatch
           </h1>
