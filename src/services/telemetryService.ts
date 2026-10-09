@@ -85,10 +85,19 @@ export const telemetryService = {
   },
 
   /**
-   * Fetches list of deployable field rangers.
+   * Fetches list of deployable field rangers (optionally sorted by distance to incident location).
    */
-  async getAvailableRangers(): Promise<RangerData[]> {
-    const response = await api.get('/api/rangers');
+  async getAvailableRangers(location?: [number, number]): Promise<RangerData[]> {
+    const params = location ? { lat: location[0], lng: location[1] } : {};
+    const response = await api.get('/api/rangers', { params });
+    return response.data.data;
+  },
+
+  /**
+   * Retrieves full dispatch audit log / history (including RESOLVED and REJECTED missions).
+   */
+  async getDispatchHistory(): Promise<AlertDispatchData[]> {
+    const response = await api.get('/api/dispatches/history');
     return response.data.data;
   },
 

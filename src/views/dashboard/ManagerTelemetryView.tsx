@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Bell,
   Play,
@@ -29,10 +29,12 @@ import { getSocket } from '../../services/socket';
 
 interface ManagerTelemetryViewProps {
   onOpenRangerTerminal?: () => void;
+  onNavigateToDispatchLog?: () => void;
 }
 
 export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
   onOpenRangerTerminal,
+  onNavigateToDispatchLog,
 }) => {
   // State
   const [telemetryList, setTelemetryList] = useState<CollarTelemetryData[]>([]);
@@ -41,7 +43,7 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
   const [rangers, setRangers] = useState<RangerData[]>([]);
   const [selectedAlertForDispatch, setSelectedAlertForDispatch] =
     useState<AlertDispatchData | null>(null);
-  const [selectedRangerId, setSelectedRangerId] = useState<string>('RNG-001');
+  const [selectedRangerId, setSelectedRangerId] = useState<string>('RNG-002');
   const [dispatchNotes, setDispatchNotes] = useState<string>(
     'Deploy acoustic sirens and redirect herd back across electric boundary.'
   );
@@ -50,6 +52,44 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
   const [isDispatching, setIsDispatching] = useState<boolean>(false);
   const [simulatorRunning, setSimulatorRunning] = useState<boolean>(true);
   const [bannerToast, setBannerToast] = useState<string | null>(null);
+
+  // Compute rangers sorted by nearest distance to the selected alert
+  const sortedRangersWithDistance = useMemo(() => {
+    if (!selectedAlertForDispatch || !selectedAlertForDispatch.location) {
+      return rangers;
+    }
+    const [alertLat, alertLng] = selectedAlertForDispatch.location;
+    const calculateDistance = (p1: [number, number], p2: [number, number]) => {
+      const R = 6371;
+      const toRad = (d: number) => (d * Math.PI) / 180;
+      const dLat = toRad(p2[0] - p1[0]);
+      const dLon = toRad(p2[1] - p1[1]);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(p1[0])) * Math.cos(toRad(p2[0])) * Math.sin(dLon / 2) ** 2;
+      return parseFloat((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(2));
+    };
+
+    const list = rangers.map((r) => {
+      const dist = r.distanceKm ?? calculateDistance([alertLat, alertLng], r.location);
+      const eta = r.etaMinutes ?? Math.max(2, Math.ceil((dist / 30) * 60));
+      return {
+        ...r,
+        distanceKm: dist,
+        etaMinutes: eta,
+      };
+    });
+
+    list.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+    return list;
+  }, [rangers, selectedAlertForDispatch]);
+
+  // When opening dispatch modal, default to nearest ranger
+  useEffect(() => {
+    if (selectedAlertForDispatch && sortedRangersWithDistance.length > 0) {
+      setSelectedRangerId(sortedRangersWithDistance[0].rangerId);
+    }
+  }, [selectedAlertForDispatch, sortedRangersWithDistance]);
 
   // Fetch initial data
   const fetchData = async () => {
@@ -514,7 +554,7 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
 
       {/* LOWER SECTION: INCIDENT & DISPATCH AUDIT LOG TABLE */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
           <div>
             <h3 className="font-bold text-slate-900 text-sm">
               UC-04 Animal Risk Alerts & Field Dispatch Registry
@@ -523,9 +563,20 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
               Audit log of real-time geofence breaches, ranger assignments, and UC-01 incident handoffs.
             </p>
           </div>
-          <span className="text-xs text-slate-400 font-medium">
-            {activeAlerts.length} Recorded Alerts
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-medium">
+              {activeAlerts.length} Active Records
+            </span>
+            {onNavigateToDispatchLog && (
+              <button
+                onClick={onNavigateToDispatchLog}
+                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg text-xs transition-colors flex items-center gap-1"
+              >
+                <span>View Full History Log</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -643,20 +694,89 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
               </p>
             </div>
 
-            {/* Select Ranger */}
-            <div className="space-y-1.5 text-xs">
-              <label className="font-semibold text-slate-700">Select Available Field Ranger:</label>
-              <select
-                value={selectedRangerId}
-                onChange={(e) => setSelectedRangerId(e.target.value)}
-                className="w-full bg-white border border-slate-200 p-2.5 rounded-xl text-slate-800 font-medium focus:ring-2 focus:ring-blue-500"
-              >
-                {rangers.map((r) => (
-                  <option key={r.rangerId} value={r.rangerId}>
-                    {r.name} ({r.callsign}) - Status: {r.status}
-                  </option>
-                ))}
-              </select>
+            {/* Select Ranger with Nearest Recommendation */}
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <label className="font-bold text-slate-800">
+                  Select Field Ranger Unit:
+                </label>
+                <span className="text-[11px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                  Sorted by GPS Proximity
+                </span>
+              </div>
+
+              {/* Nearest Ranger Highlight Card */}
+              {sortedRangersWithDistance.length > 0 && (
+                <div className="bg-emerald-50/70 border-2 border-emerald-500 rounded-xl p-3 flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">
+                      ★
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 text-xs">
+                          {sortedRangersWithDistance[0].name}
+                        </span>
+                        <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">
+                          NEAREST
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-emerald-800 font-medium">
+                        {sortedRangersWithDistance[0].callsign} •{' '}
+                        <span className="font-bold">{sortedRangersWithDistance[0].distanceKm} km away</span> • ETA ~{sortedRangersWithDistance[0].etaMinutes} mins
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRangerId(sortedRangersWithDistance[0].rangerId)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      selectedRangerId === sortedRangersWithDistance[0].rangerId
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-white text-emerald-700 border border-emerald-300 hover:bg-emerald-100'
+                    }`}
+                  >
+                    {selectedRangerId === sortedRangersWithDistance[0].rangerId ? 'Selected' : 'Select'}
+                  </button>
+                </div>
+              )}
+
+              {/* All Rangers Selector Options */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                {sortedRangersWithDistance.map((r: any, index: number) => {
+                  const isSelected = selectedRangerId === r.rangerId;
+                  const isNearest = index === 0;
+
+                  return (
+                    <div
+                      key={r.rangerId}
+                      onClick={() => setSelectedRangerId(r.rangerId)}
+                      className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-blue-600 bg-blue-50/50 shadow-sm ring-1 ring-blue-600'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900 text-xs truncate">
+                          {r.name}
+                        </span>
+                        {isNearest && (
+                          <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded">
+                            Fastest
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+                        <span>{r.callsign}</span>
+                        <span className="font-mono font-semibold text-slate-700">
+                          {r.distanceKm} km ({r.etaMinutes}m ETA)
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Dispatch Instructions */}
@@ -665,7 +785,7 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
               <textarea
                 value={dispatchNotes}
                 onChange={(e) => setDispatchNotes(e.target.value)}
-                rows={3}
+                rows={2}
                 className="w-full bg-white border border-slate-200 p-2.5 rounded-xl text-slate-800 text-xs focus:ring-2 focus:ring-blue-500"
                 placeholder="Specify tactical directives, acoustic deterrents, or route instructions..."
               />
@@ -679,7 +799,7 @@ export const ManagerTelemetryView: React.FC<ManagerTelemetryViewProps> = ({
                 className="flex-1 py-3 bg-[#0c1427] hover:bg-[#18233c] text-white font-bold text-sm rounded-xl shadow-sm flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
-                Confirm & Transmit Dispatch
+                Dispatch Ranger Unit
               </button>
               <button
                 onClick={() => setSelectedAlertForDispatch(null)}
