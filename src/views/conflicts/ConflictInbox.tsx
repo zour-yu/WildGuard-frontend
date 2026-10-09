@@ -22,7 +22,13 @@ import {
 import { auth } from '../../firebase';
 import { getSocket } from '../../services/socket';
 
-export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'dashboard' | 'inbox' | 'resolution') => void }) {
+export default function ConflictInbox({ 
+  onNavigate, 
+  userProfile 
+}: { 
+  onNavigate?: (view: 'dashboard' | 'inbox' | 'resolution') => void,
+  userProfile?: any
+}) {
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [customSms, setCustomSms] = useState('');
@@ -177,11 +183,11 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
 
         <div className="flex items-center gap-3 p-4 border-t border-slate-800">
           <div className="w-9 h-9 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-medium text-sm">
-            RJ
+            {userProfile?.name?.substring(0, 2).toUpperCase() || 'WG'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-200 truncate">R. Jayawardena</p>
-            <p className="text-xs text-slate-400 truncate">Park Manager</p>
+            <p className="text-sm font-medium text-slate-200 truncate">{userProfile?.name || 'WildGuard User'}</p>
+            <p className="text-xs text-slate-400 truncate">{userProfile?.role || 'Staff'}</p>
           </div>
           <button 
             onClick={() => auth.signOut()}

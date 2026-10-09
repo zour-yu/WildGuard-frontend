@@ -39,11 +39,32 @@ export default function App() {
 
   // Auth State
   const [user, setUser] = useState<User | null>(null);
+  const [mongoUser, setMongoUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        try {
+          const token = await currentUser.getIdToken();
+          const response = await fetch('http://localhost:5000/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await response.json();
+          if (data.success && data.user) {
+            setMongoUser(data.user);
+            if (data.user.role === 'Park Manager') {
+               // default to telemetry for Park Manager
+               setActiveNav((prev) => prev === 'inbox' ? 'telemetry' : prev);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch mongo user", err);
+        }
+      } else {
+        setMongoUser(null);
+      }
       setAuthLoading(false);
     });
     return () => unsubscribe();
@@ -88,6 +109,14 @@ export default function App() {
     };
   }, []);
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   // PUBLIC ROUTES (No Auth Required)
   if (window.location.pathname === '/') {
     const userType = localStorage.getItem('userType');
@@ -125,7 +154,7 @@ export default function App() {
   if (activeNav === 'inbox') {
     return (
       <>
-        <ConflictInbox onNavigate={setActiveNav as any} />
+        <ConflictInbox onNavigate={setActiveNav as any} userProfile={mongoUser} />
         <RangerDispatchModal
           alert={latestBreachAlert}
           isOpen={isTerminalModalOpen}
@@ -139,7 +168,7 @@ export default function App() {
   if (activeNav === 'resolution') {
     return (
       <>
-        <ConflictResolutionDetail onNavigate={setActiveNav as any} />
+        <ConflictResolutionDetail onNavigate={setActiveNav as any} userProfile={mongoUser} />
         <RangerDispatchModal
           alert={latestBreachAlert}
           isOpen={isTerminalModalOpen}
@@ -153,7 +182,7 @@ export default function App() {
   if (activeNav === 'dashboard') {
     return (
       <>
-        <ConflictDashboard onNavigate={setActiveNav as any} />
+        <ConflictDashboard onNavigate={setActiveNav as any} userProfile={mongoUser} />
         <RangerDispatchModal
           alert={latestBreachAlert}
           isOpen={isTerminalModalOpen}
@@ -321,11 +350,11 @@ export default function App() {
         <div className="pt-5 border-t border-slate-800/80 flex items-center justify-between">
           <div className="flex items-center space-x-3 overflow-hidden">
             <div className="w-8 h-8 rounded-md bg-[#1e293b] flex items-center justify-center text-xs font-bold text-white shrink-0">
-              RJ
+              {mongoUser?.name?.substring(0, 2).toUpperCase() || 'WG'}
             </div>
             <div className="overflow-hidden">
-              <p className="text-xs font-bold text-white truncate">R. Jayawardena</p>
-              <p className="text-[10px] text-slate-400 truncate">Field Operations Lead</p>
+              <p className="text-xs font-bold text-white truncate">{mongoUser?.name || 'WildGuard User'}</p>
+              <p className="text-[10px] text-slate-400 truncate">{mongoUser?.role || 'Staff'}</p>
             </div>
           </div>
           <button

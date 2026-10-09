@@ -9,7 +9,13 @@ import {
   Bell 
 } from 'lucide-react';
 
-export default function ConflictDashboard({ onNavigate }: { onNavigate?: (view: 'dashboard' | 'inbox') => void }) {
+export default function ConflictDashboard({ 
+  onNavigate,
+  userProfile
+}: { 
+  onNavigate?: (view: 'dashboard' | 'inbox') => void,
+  userProfile?: any
+}) {
   const [showNotifications, setShowNotifications] = useState(false);
 
   return (
@@ -45,11 +51,11 @@ export default function ConflictDashboard({ onNavigate }: { onNavigate?: (view: 
 
         <div className="flex items-center gap-3 p-4 border-t border-slate-800">
           <div className="w-9 h-9 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-medium text-sm">
-            RJ
+            {userProfile?.name?.substring(0, 2).toUpperCase() || 'WG'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-200 truncate">R. Jayawardena</p>
-            <p className="text-xs text-slate-400 truncate">Park Manager</p>
+            <p className="text-sm font-medium text-slate-200 truncate">{userProfile?.name || 'WildGuard User'}</p>
+            <p className="text-xs text-slate-400 truncate">{userProfile?.role || 'Staff'}</p>
           </div>
           <button className="p-1.5 hover:bg-slate-800 rounded-md transition-colors text-slate-400 hover:text-white" title="Sign Out">
             <LogOut className="w-4 h-4" />
