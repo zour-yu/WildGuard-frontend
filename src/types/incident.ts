@@ -62,6 +62,12 @@ export interface Incident {
   status: string;
   timestamp: string | Date;
   syncedFromOffline?: boolean;
+  assignedRangerId?: string;
+  assignedRangerName?: string;
+  dispatchNotes?: string;
+  dispatchedAt?: string | Date;
+  resolutionNotes?: string;
+  resolvedAt?: string | Date;
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }

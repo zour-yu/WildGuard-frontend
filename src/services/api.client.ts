@@ -67,4 +67,32 @@ export const incidentApiClient = {
     );
     return response.data.data;
   },
+
+  /**
+   * Dispatches a field ranger to the incident location.
+   */
+  async dispatchIncident(
+    id: string,
+    payload: { rangerId: string; rangerName?: string; notes?: string }
+  ): Promise<Incident> {
+    const response = await apiClient.patch<{ success: boolean; data: Incident }>(
+      `/incidents/${id}/dispatch`,
+      payload
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Resolves an incident on-scene.
+   */
+  async resolveIncident(
+    id: string,
+    payload: { resolutionNotes: string }
+  ): Promise<Incident> {
+    const response = await apiClient.patch<{ success: boolean; data: Incident }>(
+      `/incidents/${id}/resolve`,
+      payload
+    );
+    return response.data.data;
+  },
 };
