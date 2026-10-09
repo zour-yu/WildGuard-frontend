@@ -104,7 +104,7 @@ export default function App() {
   }
 
   if (!user) {
-    if (window.location.pathname === '/officer') {
+    if (window.location.pathname === '/staff' || window.location.pathname === '/admin') {
       return <LoginScreen />;
     }
     // Default public landing for unauthenticated
