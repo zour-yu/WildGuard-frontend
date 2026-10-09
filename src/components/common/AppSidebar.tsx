@@ -30,6 +30,7 @@ export interface AppSidebarProps {
   recordedIncidentCount?: number;
   unreadConflictCount?: number;
   user?: User | null;
+  userProfile?: any;
   onSignOut?: () => void;
 }
 
@@ -40,6 +41,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   recordedIncidentCount = 0,
   unreadConflictCount,
   user,
+  userProfile,
   onSignOut,
 }) => {
   const isTelemetryActive =
@@ -210,13 +212,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       <div className="pt-5 border-t border-slate-800/80 flex items-center justify-between">
         <div className="flex items-center space-x-3 overflow-hidden">
           <div className="w-8 h-8 rounded-md bg-[#1e293b] flex items-center justify-center text-xs font-bold text-white shrink-0">
-            RJ
+            {userProfile?.name?.substring(0, 2).toUpperCase() || 'WG'}
           </div>
           <div className="overflow-hidden">
             <p className="text-xs font-bold text-white truncate">
-              {user?.email ? user.email.split('@')[0] : 'R. Jayawardena'}
+              {userProfile?.name || (user?.email ? user.email.split('@')[0] : 'WildGuard User')}
             </p>
-            <p className="text-[10px] text-slate-400 truncate">Wildlife Officer</p>
+            <p className="text-[10px] text-slate-400 truncate">{userProfile?.role || 'Wildlife Officer'}</p>
           </div>
         </div>
         <button

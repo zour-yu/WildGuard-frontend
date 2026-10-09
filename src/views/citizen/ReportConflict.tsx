@@ -7,6 +7,15 @@ export default function ReportConflict() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   
+  const LOCATIONS = [
+    'Sector 1: Northern Ridge',
+    'Sector 2: Reservoir Basin',
+    'Sector 4: Farmland 8A Buffer',
+    'Sector 5: Western Settlement Buffer',
+    'Sector 6: Eastern Transit Corridor'
+  ];
+  const [location, setLocation] = useState(LOCATIONS[2]);
+  
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,6 +45,7 @@ export default function ReportConflict() {
       formData.append('description', description);
       formData.append('name', name);
       formData.append('phone', phone);
+      formData.append('location', location);
       
       if (selectedFile) {
         formData.append('image', selectedFile);
@@ -54,6 +64,7 @@ export default function ReportConflict() {
       setDescription('');
       setName('');
       setPhone('');
+      setLocation(LOCATIONS[2]);
       setSelectedCategory('Elephant Sighting');
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (e) {
@@ -202,14 +213,25 @@ export default function ReportConflict() {
           )}
         </section>
 
-        {/* Location Indicator */}
-        <div className="flex items-center justify-center gap-2 text-[#003823] bg-emerald-50 px-4 py-2.5 rounded-full text-sm font-semibold border border-emerald-100 mx-auto w-fit shadow-sm">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-          <MapPin className="w-4 h-4" />
-          Using your current location
-          <span className="text-emerald-300 ml-1">•</span>
-          <span className="text-emerald-700 font-medium">Galwala boundary</span>
-        </div>
+        {/* Location Selector */}
+        <section className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+          <label className="text-xs font-bold text-slate-500 tracking-wider mb-2 block">SELECT INCIDENT LOCATION</label>
+          <div className="relative">
+            <MapPin className="w-5 h-5 text-[#003823] absolute left-3 top-1/2 -translate-y-1/2" />
+            <select
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#003823]/50 appearance-none"
+            >
+              {LOCATIONS.map((loc) => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+          </div>
+        </section>
 
       </main>
 

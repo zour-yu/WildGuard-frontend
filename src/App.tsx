@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ManagerTelemetryView } from './views/dashboard/ManagerTelemetryView';
 import { RangerDispatchModal } from './views/ranger-terminal/RangerDispatchModal';
+import { ManagerDispatchModal } from './components/modals/ManagerDispatchModal';
 import { DispatchLogView } from './views/dispatch/DispatchLogView';
 import { IncidentLogView } from './views/mobile/ranger-incident/IncidentLogView';
 import { IncidentForm } from './views/mobile/ranger-incident/IncidentForm';
@@ -80,6 +81,7 @@ export default function App() {
 
   // Auth State
   const [user, setUser] = useState<User | null>(null);
+  const [mongoUser, setMongoUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   // Helper to switch view and update browser address bar
@@ -97,8 +99,27 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        try {
+          const token = await currentUser.getIdToken();
+          const response = await fetch('http://localhost:5000/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await response.json();
+          if (data.success && data.user) {
+            setMongoUser(data.user);
+            if (data.user.role === 'Park Manager') {
+               setActiveNav((prev) => prev === 'inbox' ? 'telemetry' : prev);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch mongo user", err);
+        }
+      } else {
+        setMongoUser(null);
+      }
       setAuthLoading(false);
     });
     return () => unsubscribe();
@@ -163,6 +184,10 @@ export default function App() {
   }
 
   if (currentPath === '/staff' || currentPath === '/admin' || currentPath === '/login') {
+    if (!authLoading && user) {
+      window.location.href = '/dashboard';
+      return null;
+    }
     return <LoginScreen />;
   }
 
@@ -184,13 +209,37 @@ export default function App() {
   if (activeNav === 'inbox') {
     return (
       <>
-        <ConflictInbox onNavigate={navigate as any} />
-        <RangerDispatchModal
+        <ConflictInbox 
+          onNavigate={navigate as any} 
+          userProfile={mongoUser} 
+          onDispatchPatrol={(conflict) => {
+            setLatestBreachAlert({
+              _id: conflict._id,
+              animalId: 'N/A',
+              animalName: 'Unknown (Citizen Report)',
+              species: 'Unknown',
+              collarId: 'N/A',
+              zoneName: conflict.location || 'Unknown Sector',
+              riskLevel: conflict.priority === 'HIGH' ? 'CRITICAL' : conflict.priority === 'MEDIUM' ? 'HIGH' : 'MEDIUM',
+              location: [6.82, 80.14], // Default center
+              status: 'ACTIVE',
+              cameraTrapImageUrl: conflict.imageUrl || 'https://images.unsplash.com/photo-1549480017-d76466a4b7e8?auto=format&fit=crop&q=80',
+              notes: conflict.description,
+              createdAt: conflict.reportedAt,
+              updatedAt: conflict.reportedAt
+            });
+            setIsTerminalModalOpen(true);
+          }}
+        />
+        <ManagerDispatchModal
           alert={latestBreachAlert}
           isOpen={isTerminalModalOpen}
           onClose={() => setIsTerminalModalOpen(false)}
           onStatusUpdated={(updated) => setLatestBreachAlert(updated)}
-          onViewDispatchLog={() => navigate('dispatch')}
+          onViewDispatchLog={() => {
+            setIsTerminalModalOpen(false);
+            navigate('dispatch');
+          }}
         />
       </>
     );
@@ -199,13 +248,16 @@ export default function App() {
   if (activeNav === 'resolution') {
     return (
       <>
-        <ConflictResolutionDetail onNavigate={navigate as any} />
-        <RangerDispatchModal
+        <ConflictResolutionDetail onNavigate={navigate as any} userProfile={mongoUser} />
+        <ManagerDispatchModal
           alert={latestBreachAlert}
           isOpen={isTerminalModalOpen}
           onClose={() => setIsTerminalModalOpen(false)}
           onStatusUpdated={(updated) => setLatestBreachAlert(updated)}
-          onViewDispatchLog={() => navigate('dispatch')}
+          onViewDispatchLog={() => {
+            setIsTerminalModalOpen(false);
+            navigate('dispatch');
+          }}
         />
       </>
     );
@@ -221,6 +273,7 @@ export default function App() {
         activeAlertCount={activeAlertCount}
         recordedIncidentCount={recordedIncidentCount}
         user={user}
+        userProfile={mongoUser}
         onSignOut={async () => {
           await auth.signOut();
           localStorage.removeItem('userType');

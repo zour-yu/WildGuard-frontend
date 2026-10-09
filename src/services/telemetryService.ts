@@ -37,7 +37,7 @@ export const telemetryService = {
    */
   async dispatchRanger(
     alertId: string,
-    payload: { rangerId: string; rangerName?: string; notes?: string }
+    payload: { rangerId: string; rangerName?: string; notes?: string; alertData?: any }
   ): Promise<AlertDispatchData> {
     const response = await api.post(`/api/alerts/${alertId}/dispatch`, payload);
     return response.data.data;

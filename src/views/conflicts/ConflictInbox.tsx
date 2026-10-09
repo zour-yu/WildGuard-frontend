@@ -25,11 +25,13 @@ import { auth } from '../../firebase';
 import { getSocket } from '../../services/socket';
 import { AppSidebar } from '../../components/common/AppSidebar';
 
-export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'dashboard' | 'inbox' | 'resolution') => void }) {
+export default function ConflictInbox({ onNavigate, userProfile, onDispatchPatrol }: { onNavigate?: (view: 'dashboard' | 'inbox' | 'resolution') => void, userProfile?: any, onDispatchPatrol?: (conflict: any) => void }) {
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [customSms, setCustomSms] = useState('');
   const [isAutoSimulating, setIsAutoSimulating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTab, setFilterTab] = useState<'ALL' | 'UNREAD'>('ALL');
 
   useEffect(() => {
     // 1. Fetch initial data from Backend
@@ -97,6 +99,59 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
 
   const unreadCount = conflicts.filter(c => c.status === 'UNREAD').length;
 
+  const handleMarkAllRead = async () => {
+    const unreadConflicts = conflicts.filter(c => c.status === 'UNREAD');
+    if (unreadConflicts.length === 0) return;
+
+    // Optimistic UI update
+    setConflicts(prev => prev.map(c => c.status === 'UNREAD' ? { ...c, status: 'ACTION_REQUIRED' } : c));
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      await Promise.all(unreadConflicts.map(c =>
+        fetch(`http://localhost:5000/api/conflicts/${c._id}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ status: 'ACKNOWLEDGED', verificationNotes: 'Marked as read from inbox.' })
+        })
+      ));
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+    }
+  };
+
+  const handleAcknowledge = async (conflictId: string) => {
+    // Optimistic UI update
+    setConflicts(prev => prev.map(c => c._id === conflictId ? { ...c, status: 'ACKNOWLEDGED' } : c));
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      await fetch(`http://localhost:5000/api/conflicts/${conflictId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: 'ACKNOWLEDGED' })
+      });
+    } catch (err) {
+      console.error('Failed to acknowledge conflict:', err);
+    }
+  };
+
+  const displayedConflicts = conflicts.filter(c => {
+    if (filterTab === 'UNREAD' && c.status !== 'UNREAD') return false;
+    if (searchQuery) {
+      const term = searchQuery.toLowerCase();
+      if (!c.description.toLowerCase().includes(term) && !c.source.toLowerCase().includes(term)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-800">
       {/* UNIFIED SIDEBAR (Matching Telemetry & Breaches) */}
@@ -105,6 +160,7 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
         onNavigate={onNavigate as any}
         unreadConflictCount={unreadCount}
         onSignOut={() => auth.signOut()}
+        userProfile={userProfile}
       />
 
       {/* Main Content Area */}
@@ -113,9 +169,10 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
         <header className="bg-white border-b border-slate-200 px-8 py-5 flex justify-between items-center z-10">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-slate-900">Notifications & Conflict Alerts</h1>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Conflict Inbox</h1>
               {unreadCount > 0 && (
-                <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded text-xs font-semibold border border-red-100">
+                <span className="bg-red-500 text-white px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-sm uppercase tracking-wider flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
                   {unreadCount} Action Required
                 </span>
               )}
@@ -127,11 +184,16 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input 
                 type="text" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search alerts, sectors..." 
                 className="pl-9 pr-4 py-2 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 w-64 bg-slate-50"
               />
             </div>
-            <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors">
+            <button 
+              onClick={handleMarkAllRead}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+            >
               <Check className="w-4 h-4" />
               Mark all read
             </button>
@@ -196,26 +258,32 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
             {/* Top KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-start gap-3">
-                <div className="mt-0.5 text-red-500">
-                  <AlertCircle className="w-5 h-5" />
+                <div className="mt-0.5 text-indigo-500">
+                  <Inbox className="w-5 h-5" />
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between items-start">
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Unresolved Alerts</h3>
-                    {unreadCount > 0 && (
-                      <span className="bg-red-50 text-red-700 border border-red-100 text-[10px] font-semibold px-2 py-0.5 rounded-full">Immediate Action</span>
-                    )}
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total Reports Today</h3>
                   </div>
-                  <p className="text-2xl font-bold text-slate-900">{unreadCount} <span className="text-sm font-normal text-slate-500">Conflicts</span></p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {(() => {
+                      const today = new Date().toDateString();
+                      return conflicts.filter(c => new Date(c.reportedAt).toDateString() === today).length;
+                    })()}
+                    <span className="text-sm font-normal text-slate-500 ml-1">Received</span>
+                  </p>
                 </div>
               </div>
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-start gap-3">
-                <div className="mt-0.5 text-slate-400">
-                  <Clock className="w-5 h-5" />
+                <div className="mt-0.5 text-amber-500">
+                  <AlertCircle className="w-5 h-5" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Avg Response Time</h3>
-                  <p className="text-2xl font-bold text-slate-900">14 <span className="text-sm font-normal text-slate-500">mins</span></p>
+                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Critical Priority</h3>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {conflicts.filter(c => c.priority === 'HIGH' && c.status !== 'RESOLVED').length} 
+                    <span className="text-sm font-normal text-slate-500 ml-1">Active</span>
+                  </p>
                 </div>
               </div>
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-start gap-3">
@@ -223,10 +291,30 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
                   <Map className="w-5 h-5" />
                 </div>
                 <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Hotspot Sector</h3>
-                  </div>
-                  <p className="text-xl font-bold text-slate-900 truncate">Sector 4</p>
+                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Most Affected Zone</h3>
+                  <p className="text-2xl font-bold text-slate-900 truncate" title={
+                    (() => {
+                      if (conflicts.length === 0) return 'N/A';
+                      const locs = conflicts.map(c => c.location).filter(loc => loc && !loc.includes('Unknown'));
+                      if (locs.length === 0) return 'N/A';
+                      const counts = locs.reduce((acc, curr) => {
+                        acc[curr as string] = (acc[curr as string] || 0) + 1;
+                        return acc;
+                      }, {} as Record<string, number>);
+                      return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                    })()
+                  }>
+                    {(() => {
+                      if (conflicts.length === 0) return 'N/A';
+                      const locs = conflicts.map(c => c.location).filter(loc => loc && !loc.includes('Unknown'));
+                      if (locs.length === 0) return 'N/A';
+                      const counts = locs.reduce((acc, curr) => {
+                        acc[curr as string] = (acc[curr as string] || 0) + 1;
+                        return acc;
+                      }, {} as Record<string, number>);
+                      return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                    })()}
+                  </p>
                 </div>
               </div>
             </div>
@@ -234,11 +322,17 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
             {/* Filter Tabs */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex gap-2">
-                <button className="bg-emerald-700 text-white px-3 py-1.5 rounded-md text-sm font-medium shadow-sm">
+                <button 
+                  onClick={() => setFilterTab('ALL')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium shadow-sm transition-colors ${filterTab === 'ALL' ? 'bg-emerald-700 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}
+                >
                   All Conflicts ({conflicts.length})
                 </button>
-                <button className="bg-white text-slate-600 border border-slate-200 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-1.5">
-                  Unread <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded text-xs">{unreadCount}</span>
+                <button 
+                  onClick={() => setFilterTab('UNREAD')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${filterTab === 'UNREAD' ? 'bg-emerald-700 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}
+                >
+                  Unread <span className={`${filterTab === 'UNREAD' ? 'bg-emerald-600 text-white' : 'bg-red-100 text-red-600'} px-1.5 py-0.5 rounded text-xs`}>{unreadCount}</span>
                 </button>
               </div>
             </div>
@@ -247,14 +341,14 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
             <div className="space-y-4">
               {loading ? (
                 <div className="text-center py-10 text-slate-500">Loading live conflicts...</div>
-              ) : conflicts.length === 0 ? (
+              ) : displayedConflicts.length === 0 ? (
                 <div className="text-center py-10 text-slate-500 flex flex-col items-center">
                   <CheckCircle2 className="w-12 h-12 text-emerald-400 mb-3" />
-                  <p className="font-semibold">All Clear</p>
-                  <p className="text-sm">No conflicts reported yet.</p>
+                  <p className="font-semibold">{searchQuery || filterTab === 'UNREAD' ? 'No matching conflicts found' : 'All Clear'}</p>
+                  <p className="text-sm">{searchQuery || filterTab === 'UNREAD' ? 'Try adjusting your filters.' : 'No conflicts reported yet.'}</p>
                 </div>
               ) : (
-                conflicts.map((conflict, idx) => (
+                displayedConflicts.map((conflict, idx) => (
                   <div key={conflict._id || idx} className={`border rounded-xl p-5 flex flex-col gap-4 ${conflict.status === 'UNREAD' ? 'bg-white border-red-200 shadow-sm' : 'bg-slate-50 border-slate-200 opacity-80'}`}>
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-2 text-xs">
@@ -288,9 +382,17 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
                     </div>
                     
                     <div>
-                      <h2 className="text-lg font-bold text-slate-900 mb-2">{conflict.source}: {conflict.description.substring(0, 50)}{conflict.description.length > 50 ? '...' : ''}</h2>
+                      <h2 className="text-lg font-bold text-slate-900 mb-2">
+                        {(() => {
+                          const match = conflict.description.match(/^\[(.*?)\]/);
+                          return match ? match[1] : (conflict.source === 'SMS' ? 'SMS Hotline Report' : 'Citizen App Report');
+                        })()}
+                      </h2>
                       <p className="text-sm text-slate-600 leading-relaxed max-w-4xl">
-                        {conflict.description}
+                        {(() => {
+                          const match = conflict.description.match(/^\[.*?\]\s*(.*)/);
+                          return match ? match[1] : conflict.description;
+                        })()}
                       </p>
                       {conflict.imageUrl && (
                         <div className="mt-4">
@@ -319,19 +421,50 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
                       
                       {conflict.status !== 'RESOLVED' && (
                         <div className="flex items-center gap-2">
-                          <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-md text-sm font-medium transition-colors">
-                            Acknowledge
-                          </button>
+                          {conflict.status === 'UNREAD' && (
+                            <button 
+                              onClick={() => handleAcknowledge(conflict._id)}
+                              className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-md text-sm font-medium transition-colors"
+                            >
+                              Acknowledge
+                            </button>
+                          )}
                           <button 
-                            onClick={() => onNavigate?.('resolution')}
+                            onClick={() => {
+                              if (conflict.status === 'UNREAD') {
+                                handleAcknowledge(conflict._id);
+                              }
+                              onNavigate?.('resolution');
+                            }}
                             className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-md text-sm font-medium transition-colors"
                           >
                             View Details
                           </button>
-                          <button className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-sm font-medium transition-colors flex items-center gap-2 shadow-sm">
-                            <Send className="w-4 h-4" />
-                            Dispatch Patrol
-                          </button>
+                          {conflict.status === 'DISPATCHED' ? (
+                            <button 
+                              disabled
+                              className="px-4 py-1.5 bg-slate-100 text-slate-500 rounded-md text-sm font-medium border border-slate-200 cursor-not-allowed flex items-center gap-2"
+                            >
+                              <Clock className="w-4 h-4" />
+                              Unit Dispatched
+                            </button>
+                          ) : conflict.status === 'RESOLVED' ? (
+                            <button 
+                              disabled
+                              className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-md text-sm font-medium border border-emerald-200 cursor-not-allowed flex items-center gap-2"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              Resolved
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => onDispatchPatrol?.(conflict)}
+                              className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
+                            >
+                              <Send className="w-4 h-4" />
+                              Dispatch Patrol
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
