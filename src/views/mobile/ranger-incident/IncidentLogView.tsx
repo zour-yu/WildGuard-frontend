@@ -303,7 +303,7 @@ export const IncidentLogView: React.FC = () => {
                 key={f}
                 onClick={() => setSelectedFilter(f)}
                 className={`px-3 py-1.5 rounded-lg font-bold transition text-[11px] ${
-                  selectedFilter === f ? 'bg-slate-800 text-slate-900 border border-slate-700 shadow' : 'text-slate-500 hover:text-slate-900'
+                  selectedFilter === f ? 'bg-slate-800 text-white border border-slate-700 shadow' : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
                 {f}
