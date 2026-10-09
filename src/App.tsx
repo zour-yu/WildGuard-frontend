@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { ManagerTelemetryView } from './views/dashboard/ManagerTelemetryView';
 import { RangerDispatchModal } from './views/ranger-terminal/RangerDispatchModal';
+import { DispatchLogView } from './views/dispatch/DispatchLogView';
 import { telemetryService } from './services/telemetryService';
 import { getSocket } from './services/socket';
 import { AlertDispatchData } from './types/telemetry';
@@ -190,13 +191,13 @@ export default function App() {
 
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col min-h-screen overflow-y-auto">
-        {activeNav === 'dashboard' || activeNav === 'inbox' || activeNav === 'dispatch' || activeNav === 'contacts' ? (
-          <ManagerTelemetryView
+        {activeNav === 'dispatch' ? (
+          <DispatchLogView
             onOpenRangerTerminal={() => {
-              setIsTerminalModalOpen(true);
+              setActiveNav('terminal');
             }}
           />
-        ) : (
+        ) : activeNav === 'terminal' ? (
           /* Dedicated Ranger Mobile Terminal Tab */
           <div className="flex-1 flex flex-col items-center justify-center p-6 bg-[#f1f5f9]">
             <div className="text-center mb-6">
@@ -220,6 +221,7 @@ export default function App() {
                   isOpen={true}
                   onClose={() => setActiveNav('dashboard')}
                   onStatusUpdated={(updated) => setLatestBreachAlert(updated)}
+                  onViewDispatchLog={() => setActiveNav('dispatch')}
                 />
               ) : (
                 <div className="bg-white rounded-2xl p-6 text-center text-slate-600 space-y-3 min-h-[380px] flex flex-col items-center justify-center">
@@ -238,6 +240,15 @@ export default function App() {
               )}
             </div>
           </div>
+        ) : (
+          <ManagerTelemetryView
+            onOpenRangerTerminal={() => {
+              setIsTerminalModalOpen(true);
+            }}
+            onNavigateToDispatchLog={() => {
+              setActiveNav('dispatch');
+            }}
+          />
         )}
 
         {/* Global Terminal Modal if opened from Dashboard button */}
@@ -246,6 +257,10 @@ export default function App() {
           isOpen={isTerminalModalOpen}
           onClose={() => setIsTerminalModalOpen(false)}
           onStatusUpdated={(updated) => setLatestBreachAlert(updated)}
+          onViewDispatchLog={() => {
+            setIsTerminalModalOpen(false);
+            setActiveNav('dispatch');
+          }}
         />
       </div>
     </div>
