@@ -49,7 +49,7 @@ export default function ConflictResolutionDetail({ onNavigate }: { onNavigate?: 
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-slate-200 truncate">R. Jayawardena</p>
-              <p className="text-xs text-slate-400 truncate">Community Liaison Officer</p>
+              <p className="text-xs text-slate-400 truncate">Park Manager</p>
             </div>
             <button className="p-1.5 hover:bg-slate-800 rounded-md transition-colors text-slate-400 hover:text-white" title="Sign Out">
               <LogOut className="w-4 h-4" />

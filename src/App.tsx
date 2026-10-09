@@ -7,27 +7,47 @@ import {
   Users,
   LogOut,
   Smartphone,
-  AlertTriangle,
   PlusCircle,
-  FileText,
 } from 'lucide-react';
 import { ManagerTelemetryView } from './views/dashboard/ManagerTelemetryView';
 import { RangerDispatchModal } from './views/ranger-terminal/RangerDispatchModal';
 import { IncidentForm } from './views/mobile/ranger-incident/IncidentForm';
-import { IncidentLogView } from './views/mobile/ranger-incident/IncidentLogView';
 import { incidentApiClient } from './services/api.client';
 import { telemetryService } from './services/telemetryService';
 import { getSocket } from './services/socket';
 import { AlertDispatchData } from './types/telemetry';
 
+// Import our conflict components
+import ConflictDashboard from './views/conflicts/ConflictDashboard';
+import ConflictInbox from './views/conflicts/ConflictInbox';
+import ConflictResolutionDetail from './views/conflicts/ConflictResolutionDetail';
+import LoginScreen from './views/auth/LoginScreen';
+import ReportConflict from './views/citizen/ReportConflict';
+import CitizenAuth from './views/auth/CitizenAuth';
+import LandingPage from './views/LandingPage';
+import { auth } from './firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+
 export default function App() {
   const [activeNav, setActiveNav] = useState<
-    'dashboard' | 'inbox' | 'dispatch' | 'contacts' | 'terminal' | 'record-incident'
-  >('dashboard');
+    'dashboard' | 'inbox' | 'dispatch' | 'contacts' | 'terminal' | 'resolution' | 'telemetry' | 'record-incident'
+  >('inbox');
   const [activeAlertCount, setActiveAlertCount] = useState<number>(3);
   const [recordedIncidentCount, setRecordedIncidentCount] = useState<number>(0);
   const [latestBreachAlert, setLatestBreachAlert] = useState<AlertDispatchData | null>(null);
   const [isTerminalModalOpen, setIsTerminalModalOpen] = useState<boolean>(false);
+
+  // Auth State
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     // Initial fetch of active alerts and recorded incidents
@@ -68,6 +88,83 @@ export default function App() {
     };
   }, []);
 
+  // PUBLIC ROUTES (No Auth Required)
+  if (window.location.pathname === '/') {
+    const userType = localStorage.getItem('userType');
+    // Let Officer fall through to Dashboard, everyone else sees Landing Page
+    if (!user || userType !== 'Officer') {
+      return <LandingPage />;
+    }
+  }
+  if (window.location.pathname === '/report') {
+    return <ReportConflict />;
+  }
+  
+  if (window.location.pathname === '/citizen-auth' || window.location.pathname === '/citizen-login') {
+    return <CitizenAuth />;
+  }
+
+  // Global Auth Guard
+  if (authLoading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f8fafc]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    if (window.location.pathname === '/staff' || window.location.pathname === '/admin') {
+      return <LoginScreen />;
+    }
+    // Default public landing for unauthenticated
+    return <LandingPage />;
+  }
+
+  // Conditionally render the standalone Conflict views (they have their own full-screen layouts and sidebars)
+  if (activeNav === 'inbox') {
+    return (
+      <>
+        <ConflictInbox onNavigate={setActiveNav as any} />
+        <RangerDispatchModal
+          alert={latestBreachAlert}
+          isOpen={isTerminalModalOpen}
+          onClose={() => setIsTerminalModalOpen(false)}
+          onStatusUpdated={(updated) => setLatestBreachAlert(updated)}
+        />
+      </>
+    );
+  }
+  
+  if (activeNav === 'resolution') {
+    return (
+      <>
+        <ConflictResolutionDetail onNavigate={setActiveNav as any} />
+        <RangerDispatchModal
+          alert={latestBreachAlert}
+          isOpen={isTerminalModalOpen}
+          onClose={() => setIsTerminalModalOpen(false)}
+          onStatusUpdated={(updated) => setLatestBreachAlert(updated)}
+        />
+      </>
+    );
+  }
+  
+  if (activeNav === 'dashboard') {
+    return (
+      <>
+        <ConflictDashboard onNavigate={setActiveNav as any} />
+        <RangerDispatchModal
+          alert={latestBreachAlert}
+          isOpen={isTerminalModalOpen}
+          onClose={() => setIsTerminalModalOpen(false)}
+          onStatusUpdated={(updated) => setLatestBreachAlert(updated)}
+        />
+      </>
+    );
+  }
+
+  // Render the main branch layout for Telemetry and Terminal
   return (
     <div className="min-h-screen w-full flex flex-col md:flex-row bg-[#0c1427] text-slate-100 antialiased font-sans">
       {/* LEFT SIDEBAR */}
@@ -100,7 +197,7 @@ export default function App() {
             <button
               onClick={() => setActiveNav('dashboard')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                activeNav === 'dashboard'
+                (activeNav as string) === 'dashboard'
                   ? 'bg-[#18233c] text-white shadow-sm border border-slate-700/50'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               }`}
@@ -110,12 +207,27 @@ export default function App() {
                 <span>Dashboard</span>
               </div>
             </button>
+            
+            {/* Telemetry View */}
+            <button
+              onClick={() => setActiveNav('telemetry')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                activeNav === 'telemetry'
+                  ? 'bg-[#18233c] text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                <LayoutGrid className="w-4 h-4" />
+                <span>Telemetry Maps</span>
+              </div>
+            </button>
 
             {/* Incident Inbox */}
             <button
               onClick={() => setActiveNav('inbox')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                activeNav === 'inbox'
+                (activeNav as string) === 'inbox'
                   ? 'bg-[#18233c] text-white border border-slate-700/50'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               }`}
@@ -218,6 +330,7 @@ export default function App() {
           </div>
           <button
             title="Sign Out"
+            onClick={() => auth.signOut()}
             className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800/60 transition-colors"
           >
             <LogOut className="w-4 h-4" />
@@ -249,9 +362,6 @@ export default function App() {
               }}
             />
           </div>
-        ) : activeNav === 'inbox' ? (
-          /* Central Incident Inbox & Feed */
-          <IncidentLogView />
         ) : activeNav === 'terminal' ? (
           /* Dedicated Ranger Mobile Terminal Tab (UC-04) */
           <div className="flex-1 flex flex-col items-center justify-center p-6 bg-[#070b14]">
@@ -274,7 +384,7 @@ export default function App() {
                 <RangerDispatchModal
                   alert={latestBreachAlert}
                   isOpen={true}
-                  onClose={() => setActiveNav('dashboard')}
+                  onClose={() => setActiveNav('telemetry')}
                   onStatusUpdated={(updated) => setLatestBreachAlert(updated)}
                   onViewDispatchLog={() => setActiveNav('dispatch')}
                 />
