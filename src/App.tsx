@@ -20,6 +20,7 @@ import ConflictDashboard from './views/conflicts/ConflictDashboard';
 import ConflictInbox from './views/conflicts/ConflictInbox';
 import ConflictResolutionDetail from './views/conflicts/ConflictResolutionDetail';
 import LoginScreen from './views/auth/LoginScreen';
+import ReportConflict from './views/citizen/ReportConflict';
 import { auth } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -74,6 +75,11 @@ export default function App() {
       socket.off('dispatch:updated');
     };
   }, []);
+
+  // PUBLIC ROUTES (No Auth Required)
+  if (window.location.pathname === '/report') {
+    return <ReportConflict />;
+  }
 
   // Global Auth Guard
   if (authLoading) {

@@ -181,7 +181,7 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-slate-200 truncate">R. Jayawardena</p>
-            <p className="text-xs text-slate-400 truncate">Liaison Officer</p>
+            <p className="text-xs text-slate-400 truncate">Park Manager</p>
           </div>
           <button 
             onClick={() => auth.signOut()}
@@ -329,10 +329,20 @@ export default function ConflictInbox({ onNavigate }: { onNavigate?: (view: 'das
                     </div>
                     
                     <div>
-                      <h2 className="text-lg font-bold text-slate-900 mb-2">{conflict.source}: {conflict.description.substring(0, 50)}...</h2>
+                      <h2 className="text-lg font-bold text-slate-900 mb-2">{conflict.source}: {conflict.description.substring(0, 50)}{conflict.description.length > 50 ? '...' : ''}</h2>
                       <p className="text-sm text-slate-600 leading-relaxed max-w-4xl">
                         {conflict.description}
                       </p>
+                      {conflict.imageUrl && (
+                        <div className="mt-4">
+                          <a href={conflict.imageUrl} target="_blank" rel="noreferrer" className="inline-block relative rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition-shadow group">
+                            <img src={conflict.imageUrl} alt="Incident Evidence" className="w-32 h-32 object-cover" />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                              <Search className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 drop-shadow-md" />
+                            </div>
+                          </a>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center justify-between gap-4 mt-2">
